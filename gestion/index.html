@@ -91,6 +91,15 @@
   .chk { width:26px; height:26px; border:2px solid var(--ink); background:#fff; cursor:pointer; display:inline-grid; place-items:center; font-weight:700; font-size:16px; padding:0; }
   .chk.on { background:var(--ok); border-color:var(--ok); color:#fff; cursor:default; }
   .numinp { width:82px; padding:5px 6px; border:1px solid #999; font-family:'Space Mono', monospace; }
+  .tgrid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
+  .tal { background:#fff; border:1px solid var(--line); padding:8px 10px; font-size:12px; }
+  .tal b { font-family:'Space Mono', monospace; font-size:15px; }
+  .tal .bar2 { height:8px; background:#e4e2db; margin:5px 0 3px; display:flex; } .tal .bar2 div { height:100%; }
+  .tal.taco { border-color:var(--blue); } .tal.free { opacity:.75; }
+  .medio { display:flex; gap:8px; } .medio label { flex:1; border:2px solid #bbb; padding:10px; text-align:center; cursor:pointer; font-weight:700; margin:0 !important; }
+  .medio input { display:none; } .medio label:has(input:checked) { border-color:var(--ink); background:var(--yellow); }
+  .grp { display:grid; grid-template-columns:150px 1fr 70px 30px; gap:8px; align-items:center; margin-top:6px; }
+  .grp select, .grp input { padding:7px 8px !important; }
   .empty { background:#fff; border:1px dashed #bbb; padding:18px; color:var(--muted); text-align:center; }
 
   /* ficha */
@@ -230,14 +239,17 @@
           <div class="progress" id="vProg"></div>
           <p class="muted" style="margin:0 0 10px;font-size:12px" id="vProgTxt"></p>
           <table class="tbl" id="vPart"></table>
+          <h3>Mapa de talonarios</h3>
+          <div class="tgrid" id="vTal"></div>
+          <p class="muted" style="font-size:12px">Verde: vendidas · Azul: en un taco sin liquidar · Gris: libres.</p>
         </div>
         <div>
           <h2>Dinero</h2>
           <table class="tbl" id="vDinero"></table>
           <h3>Cobrado por día</h3>
           <div id="vDias"></div>
-          <h3>Vendido por vinculación</h3>
-          <table class="tbl" id="vVinc"></table>
+          <h3>Cobrado por medio de pago</h3>
+          <table class="tbl" id="vMedio"></table>
         </div>
       </div>
     </section>
@@ -253,9 +265,9 @@
         <div>
           <h2>Cerrar caja</h2>
           <div class="form">
-            <p class="muted" style="margin:0">Contad el efectivo entre dos personas. Si hay diferencia, explicadla en las notas.</p>
+            <p class="muted" style="margin:0">Contad el efectivo entre dos personas (lo cobrado por TPV no cuenta aquí). Si hay diferencia, explicadla en las notas.</p>
             <div class="row2">
-              <div><label>Esperado según la hoja</label><input id="kEsperado" disabled></div>
+              <div><label>Efectivo esperado según la hoja</label><input id="kEsperado" disabled></div>
               <div><label>Contado en la caja (€)</label><input id="kContado" inputmode="decimal"></div>
             </div>
             <label>Quién cuenta (dos nombres)</label><input id="kFirmas" placeholder="Fernando y Jesús">
@@ -348,7 +360,66 @@ const tacoVencido = t => t['Estado'] === 'En depósito' && String(t['Fecha lími
 function prep() {
   TAC = {};
   D.tacos.forEach(t => { (TAC[t['Código reserva']] = TAC[t['Código reserva']] || []).push(t); });
+  calcUso();
 }
+
+/* ===== talonarios y números (misma lógica que el servidor) ===== */
+const NT = () => D.config.numTalonarios;
+const rangoT = t => D.config.continua ? [(t - 1) * n() + 1, t * n()] : [1, n()];
+function parseNums(txt) {
+  const out = [];
+  String(txt || '').replace(/;/g, ',').split(/[,\s]+/).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) throw new Error('No entiendo «' + tok + '». Escribe números separados por comas o rangos como 1-3.');
+    const a = +m[1], b = m[2] ? +m[2] : a;
+    if (b < a || b - a > 1000) throw new Error('Rango no válido: ' + tok);
+    for (let i = a; i <= b; i++) out.push(i);
+  });
+  return out;
+}
+function fmtNums(arr) {
+  const a = arr.slice().sort((x, y) => x - y), out = [];
+  for (let i = 0; i < a.length; i++) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? a[i] + '-' + a[j] : String(a[i])); i = j; }
+  return out.join(', ');
+}
+function parseGrupos(txt) {
+  return String(txt || '').split(';').map(x => x.trim()).filter(Boolean).map(g => {
+    const m = g.match(/^T(\d+)\s*:\s*(.+)$/i); if (!m) return null;
+    try { return { t: +m[1], nums: parseNums(m[2]) }; } catch (e) { return null; }
+  }).filter(Boolean);
+}
+let USO = { set: {}, taco: {} };
+function calcUso() {
+  const set = {}, taco = {};
+  D.reservas.forEach(r => parseGrupos(r['Participaciones']).forEach(g => g.nums.forEach(x => { set[g.t + ':' + x] = r['Código']; })));
+  D.tacos.forEach(t => {
+    const tn = +t['Talonario']; if (!tn) return;
+    taco[tn] = t;
+    const dev = t['Estado'] === 'Liquidado' ? (() => { try { return parseNums(t['Nº devueltos']); } catch (e) { return []; } })() : [];
+    const rg = rangoT(tn);
+    for (let x = rg[0]; x <= rg[1]; x++) if (!dev.includes(x) && !set[tn + ':' + x]) set[tn + ':' + x] = t['ID'];
+  });
+  USO = { set, taco };
+}
+const usadosT = t => { const rg = rangoT(t); let k = 0; for (let x = rg[0]; x <= rg[1]; x++) if (USO.set[t + ':' + x]) k++; return k; };
+const tacoFuera = t => USO.taco[t] && USO.taco[t]['Estado'] === 'En depósito';
+// Talonarios completos y libres para dar como taco (del 1 hacia arriba).
+function talonariosLibres() { const out = []; for (let t = 1; t <= NT(); t++) if (!USO.taco[t] && usadosT(t) === 0) out.push(t); return out; }
+// Propuesta de participaciones sueltas: primero talonarios empezados, luego del último hacia atrás.
+function proponerSueltas(k) {
+  const ts = [];
+  for (let t = NT(); t >= 1; t--) if (!tacoFuera(t)) ts.push(t);
+  ts.sort((a, b) => (usadosT(b) > 0 && usadosT(b) < n()) - (usadosT(a) > 0 && usadosT(a) < n()));
+  const out = [];
+  for (const t of ts) {
+    if (k <= 0) break;
+    const rg = rangoT(t), nums = [];
+    for (let x = rg[0]; x <= rg[1] && k > 0; x++) if (!USO.set[t + ':' + x]) { nums.push(x); k--; }
+    if (nums.length) out.push({ t, nums });
+  }
+  return out;
+}
+const txtTaco = t => `T${t['Talonario']} · ${t['Desde']}–${t['Hasta']}`;
 function pagado(r) {
   return (Number(r['Importe sueltas']) || 0) + (TAC[r['Código']] || []).reduce((a, t) => a + (Number(t['Importe liquidado']) || 0), 0);
 }
@@ -360,13 +431,18 @@ function porCobrar(r) {
 }
 function matchQ(r, q) {
   if (!q) return true;
-  const num = Number(q);
-  if (q.match(/^\d{1,6}$/) && (TAC[r['Código']] || []).some(t => num >= Number(t['Desde']) && num <= Number(t['Hasta']))) return true;
+  if (/^\d{1,5}$/.test(q)) {
+    const num = +q;
+    if ((TAC[r['Código']] || []).some(t => num >= +t['Desde'] && num <= +t['Hasta'])) return true;
+    if (parseGrupos(r['Participaciones']).some(g => g.nums.includes(num))) return true;
+  }
+  const tq = q.match(/^t\s?(\d{1,2})$/);
+  if (tq && ((TAC[r['Código']] || []).some(t => +t['Talonario'] === +tq[1]) || parseGrupos(r['Participaciones']).some(g => g.t === +tq[1]))) return true;
   return norm([r['Código'], r['Nombre'], r['Apellidos'], r['Teléfono'], r['Email']].join(' ')).includes(q);
 }
 function waLink(tel, msg) { return 'https://wa.me/34' + String(tel).replace(/\D/g, '').slice(-9) + '?text=' + encodeURIComponent(msg); }
 function msgTaco(t) {
-  return `Hola, ${String(t['Titular']).split(' ')[0]}. Te recordamos desde el Torrelodones Rugby Club que el ${D.config.limiteLiqEtiqueta.toLowerCase()} es el último día para liquidar tu taco de lotería ${t['ID']} (participaciones ${t['Desde']} a ${t['Hasta']}): trae el dinero de lo vendido y devuelve las que no hayas vendido. Martes y jueves de 18:00 a 20:00 en la oficina del club. ¡Gracias!`;
+  return `Hola, ${String(t['Titular']).split(' ')[0]}. Te recordamos desde el Torrelodones Rugby Club que el ${D.config.limiteLiqEtiqueta.toLowerCase()} es el último día para liquidar tu taco de lotería (talonario ${t['Talonario']}, participaciones ${t['Desde']} a ${t['Hasta']}): trae el dinero de lo vendido y devuelve las que no hayas vendido. Martes y jueves de 18:00 a 20:00 en la oficina del club. ¡Gracias!`;
 }
 function msgNoVino(r) {
   const lib = D.config.diasLiberar > 0 ? ` Si no pasas antes del ${fechaL(addD(r['Día recogida'], D.config.diasLiberar))}, la reserva se liberará.` : '';
@@ -380,13 +456,14 @@ function renderKpis() {
   const sinRecoger = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0) + tPend(x) * nn, 0);
   const libres = r.sueltasLibres + r.tacosLibres * nn;
   const plazo = dias(D.config.limiteLiq, D.hoy);
+  const sumM = (arr, m) => arr.filter(x => (x['Medio'] || 'Efectivo') === m).reduce((a, x) => a + (Number(x['Importe']) || 0), 0);
   const k = (l, v, s, cls) => `<div class="kpi ${cls || ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || ''}</div></div>`;
   $('kpis').innerHTML =
-    k('Cobrado', eur0(r.totalCaja), `${int(r.sueltasEntregadas + r.vendidasTacos)} participaciones vendidas`, 'hl') +
+    k('Cobrado', eur0(r.totalCaja), `${eur0(sumM(D.caja, 'Efectivo'))} efectivo · ${eur0(sumM(D.caja, 'TPV'))} TPV`, 'hl') +
     k('Quedan por vender', int(libres), `participaciones · ${eur0(libres * p)}`) +
     k('Reservado sin recoger', eur0(sinRecoger * p), `${int(sinRecoger)} participaciones`) +
     k('En tacos sin liquidar', eur0(r.importeEnDeposito), pl(r.tacosEnDeposito, 'taco fuera', 'tacos fuera')) +
-    k('Caja sin cerrar', eur0(D.pendiente.total), pl(D.pendiente.movimientos.length, 'movimiento', 'movimientos'), D.pendiente.total ? 'alert' : '') +
+    k('Efectivo sin cerrar', eur0(D.pendiente.total), `+ ${eur0(D.pendiente.tpv || 0)} por TPV`, D.pendiente.total ? 'alert' : '') +
     k('Plazo de los tacos', plazo >= 0 ? plazo + ' días' : 'Vencido', D.config.limiteLiqEtiqueta, plazo <= 5 && r.tacosEnDeposito ? 'alert' : '');
   $('nTacos').textContent = r.tacosEnDeposito || ''; $('nTacos').hidden = !r.tacosEnDeposito;
   const nv = D.reservas.filter(noVino).length;
@@ -403,10 +480,6 @@ $('tabs').addEventListener('click', e => {
 function renderAll() { document.querySelector('.top .brand').innerHTML = 'Lotería <span>TRC</span> · ' + esc(D.config.numeros.join(' · ')); renderKpis(); renderHoy(); renderCompradores(); renderTacos(); renderNoVin(); renderVentas(); renderCaja(); renderRegistro(); }
 
 /* ===== HOY ===== */
-function siguienteDesde() {
-  let max = 0; D.tacos.forEach(t => { if (Number(t['Hasta']) > max) max = Number(t['Hasta']); });
-  return max ? max + 1 : (D.config.numDesde || 1);
-}
 function renderHoy() {
   $('hFecha').innerHTML = `<b>${esc(D.hoyEtiqueta)}</b> · quienes eligieron recoger hoy. Para cualquier otra persona, usa el buscador.`;
   const q = norm($('hQ').value.trim());
@@ -428,7 +501,7 @@ function renderHoy() {
       const done = r['Sueltas entregadas'] !== '';
       return `<tr class="${done ? 'done' : ''}">
         <td>${done ? '<span class="chk on">✓</span>' : `<button class="chk" title="Marcar como recogido" data-act="suel" data-c="${esc(r['Código'])}"></button>`}</td>
-        <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span>${r['Día recogida'] !== hoy ? ` <span class="badge b-Parcial">otro día</span>` : ''}${r['Notas'] ? `<div class="muted" style="font-size:12px">📝 ${esc(r['Notas'])}</div>` : ''}</td>
+        <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span>${r['Día recogida'] !== hoy ? ` <span class="badge b-Parcial">otro día</span>` : ''}${done ? `<div class="mono" style="font-size:12px">${esc(r['Participaciones'])} · ${esc(r['Medio de pago'])}</div>` : ''}${r['Notas'] ? `<div class="muted" style="font-size:12px">📝 ${esc(r['Notas'])}</div>` : ''}</td>
         <td class="mono">${esc(r['Teléfono'])}</td>
         <td class="n">${done ? r['Sueltas entregadas'] : r['Sueltas']}</td>
         <td class="n">${eur((done ? r['Sueltas entregadas'] : r['Sueltas']) * P())}</td>
@@ -436,31 +509,33 @@ function renderHoy() {
     }).join('') + '</table>' : '<div class="empty">Nadie ha elegido recoger sueltas hoy.</div>';
 
   // Tacos
-  let next = siguienteDesde();
+  const libres = talonariosLibres(); let li = 0;
   const rows = [];
   D.reservas.filter(r => !inactiva(r)).forEach(r => {
     (TAC[r['Código']] || []).filter(t => t['Fecha entrega'] === hoy).forEach(t => rows.push({ r, t }));
-    if (r['Día recogida'] === hoy) for (let i = 0; i < tPend(r); i++) { rows.push({ r, desde: next }); next += n(); }
+    if (r['Día recogida'] === hoy) for (let i = 0; i < tPend(r); i++) rows.push({ r, tal: libres[li++] });
   });
   rows.sort((a, b) => (!!a.t - !!b.t) || String(a.r['Apellidos']).localeCompare(b.r['Apellidos'], 'es'));
   const tDone = rows.filter(x => x.t).length;
   $('hTCount').textContent = `${tDone} de ${rows.length} entregados`;
-  $('hTacos').innerHTML = rows.length ? `<table class="tbl"><tr><th style="width:44px"></th><th>Persona</th><th>Teléfono</th><th>Números</th><th></th></tr>` +
+  $('hTacos').innerHTML = rows.length ? `<table class="tbl"><tr><th style="width:44px"></th><th>Persona</th><th>Teléfono</th><th>Talonario</th><th></th></tr>` +
     rows.map((x, i) => {
       const r = x.r, t = x.t;
       if (t) return `<tr class="done"><td><span class="chk on">✓</span></td><td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(t['ID'])}</span></td>
-        <td class="mono">${esc(r['Teléfono'])}</td><td class="mono">${t['Desde']}–${t['Hasta']}</td>
+        <td class="mono">${esc(r['Teléfono'])}</td><td class="mono">${txtTaco(t)}</td>
         <td><span class="muted" style="font-size:12px">${esc(t['Hora entrega'])} · ${esc(t['Entregado por'])}</span> ${t['Estado'] === 'En depósito' ? `<button class="lnk" data-act="dtaco" data-id="${esc(t['ID'])}">deshacer</button>` : ''}</td></tr>`;
       return `<tr><td><button class="chk" title="Marcar como entregado" data-act="taco" data-c="${esc(r['Código'])}" data-inp="hin${i}"></button></td>
         <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span></td>
         <td class="mono">${esc(r['Teléfono'])}</td>
-        <td><input class="numinp" id="hin${i}" type="number" value="${x.desde}" title="Primer número del taco"> <span class="muted mono" id="hin${i}r">–${x.desde + n() - 1}</span></td><td></td></tr>`;
-    }).join('') + '</table><p class="muted" style="font-size:12px">El primer número se propone solo. Si el taco que tienes en la mano empieza en otro, cámbialo antes de marcar.</p>' : '<div class="empty">Nadie ha elegido recoger tacos hoy.</div>';
+        <td>${selTal('hin' + i, x.tal)}</td><td></td></tr>`;
+    }).join('') + '</table><p class="muted" style="font-size:12px">Se propone el siguiente talonario completo. Si das otro, cámbialo en el desplegable antes de marcar.</p>' : '<div class="empty">Nadie ha elegido recoger tacos hoy.</div>';
 }
 $('hQ').addEventListener('input', renderHoy);
-document.addEventListener('input', e => {
-  if (e.target.classList.contains('numinp')) { const r = $(e.target.id + 'r'); if (r) r.textContent = '–' + (Number(e.target.value) + n() - 1); }
-});
+function selTal(id, def) {
+  const ls = talonariosLibres();
+  if (!ls.length) return '<span class="red">No quedan talonarios completos</span>';
+  return `<select class="numinp" id="${id}" style="width:auto">` + ls.map(t => `<option value="${t}" ${t === def ? 'selected' : ''}>Talonario ${t} (${rangoT(t)[0]}–${rangoT(t)[1]})</option>`).join('') + '</select>';
+}
 
 /* Ficha completa de una reserva (buscador y Compradores) */
 function ficha(r) {
@@ -468,24 +543,24 @@ function ficha(r) {
   let rows = '';
   if (Number(r['Sueltas']) > 0 || r['Sueltas entregadas'] !== '') {
     rows += `<div class="rw"><span class="lbl">Sueltas</span>` + (r['Sueltas entregadas'] !== ''
-      ? `<span class="ok">✓ ${r['Sueltas entregadas']} recogidas · ${eur(r['Importe sueltas'])}</span> <span class="muted">${fechaL(r['Fecha entrega sueltas'])} ${esc(r['Hora entrega sueltas'])} · ${esc(r['Atendido por'])}</span>` +
+      ? `<span class="ok">✓ ${r['Sueltas entregadas']} recogidas · ${eur(r['Importe sueltas'])} · ${esc(r['Medio de pago'])}</span> <span class="mono">${esc(r['Participaciones'])}</span> <span class="muted">${fechaL(r['Fecha entrega sueltas'])} ${esc(r['Hora entrega sueltas'])} · ${esc(r['Atendido por'])}</span>` +
         (r['Fecha entrega sueltas'] === D.hoy ? ` <button class="lnk" data-act="dsuel" data-c="${esc(r['Código'])}">deshacer</button>` : '')
       : `<span class="pend">${r['Sueltas']} por recoger</span> ${inact ? '' : `<button class="btn pri sm" data-act="suel" data-c="${esc(r['Código'])}">Cobrar ${eur(r['Sueltas'] * P())} y entregar</button>`}`) + '</div>';
   }
   tk.forEach(t => {
     const v = tacoVencido(t);
-    rows += `<div class="rw"><span class="lbl">Taco ${esc(t['ID'])}</span><span class="mono">${t['Desde']}–${t['Hasta']}</span> <span class="muted">entregado ${fechaL(t['Fecha entrega'])} · ${esc(t['Entregado por'])}</span> ` +
+    rows += `<div class="rw"><span class="lbl">Taco ${esc(t['ID'])}</span><span class="mono">${txtTaco(t)}</span> <span class="muted">entregado ${fechaL(t['Fecha entrega'])} · ${esc(t['Entregado por'])}</span> ` +
       (t['Estado'] === 'Liquidado'
-        ? `<span class="ok">✓ Liquidado: ${t['Vendidas']} vendidas (${eur(t['Importe liquidado'])}), ${t['Devueltas']} devueltas</span>` + (t['Fecha liquidación'] === D.hoy ? ` <button class="lnk" data-act="dliq" data-id="${esc(t['ID'])}">deshacer</button>` : '')
+        ? `<span class="ok">✓ Liquidado: ${t['Vendidas']} vendidas (${eur(t['Importe liquidado'])}${t['Medio de pago'] ? ', ' + esc(t['Medio de pago']) : ''}), ${t['Devueltas']} devueltas${t['Nº devueltos'] ? ' (' + esc(t['Nº devueltos']) + ')' : ''}</span>` + (t['Fecha liquidación'] === D.hoy ? ` <button class="lnk" data-act="dliq" data-id="${esc(t['ID'])}">deshacer</button>` : '')
         : `<span class="badge ${v ? 'b-Vencido' : 'b-Fuera'}">${v ? 'Fuera de plazo' : 'Sin liquidar'}</span> <button class="btn pri sm" data-act="liq" data-id="${esc(t['ID'])}">Liquidar</button>` + (t['Fecha entrega'] === D.hoy ? ` <button class="lnk" data-act="dtaco" data-id="${esc(t['ID'])}">deshacer entrega</button>` : '')) + '</div>';
   });
   if (!inact) for (let i = 0; i < tPend(r); i++) {
-    const id = 'fin' + r['Código'] + i, d = siguienteDesde() + i * n();
-    rows += `<div class="rw"><span class="lbl">Taco</span><span class="pend">por entregar</span> Primer número: <input class="numinp" id="${id}" type="number" value="${d}"> <span class="muted mono" id="${id}r">–${d + n() - 1}</span> <button class="btn dark sm" data-act="taco" data-c="${esc(r['Código'])}" data-inp="${id}">Entregar taco</button></div>`;
+    const id = 'fin' + r['Código'] + i;
+    rows += `<div class="rw"><span class="lbl">Taco</span><span class="pend">por entregar</span> ${selTal(id, talonariosLibres()[i])} <button class="btn dark sm" data-act="taco" data-c="${esc(r['Código'])}" data-inp="${id}">Entregar taco</button></div>`;
   }
   const est = noVino(r) ? 'No vino' : r['Estado'];
   return `<div class="ficha"><div class="h"><span class="code">${esc(r['Código'])}</span><span class="nm">${esc(r['Nombre'])} ${esc(r['Apellidos'])}</span>
-    <span class="mono">${esc(r['Teléfono'])}</span><span class="muted">${esc(r['Email'])} · ${esc(r['Vinculación'])} · recogida ${diaCorto(r['Día recogida'])} · ${esc(r['Origen'])}</span>
+    <span class="mono">${esc(r['Teléfono'])}</span><span class="muted">${esc(r['Email'])} · recogida ${diaCorto(r['Día recogida'])} · ${esc(r['Origen'])}</span>
     <span class="badge b-${est.replace(' ', '-')}" style="margin-left:auto">${esc(est)}</span></div>
     ${r['Notas'] ? `<div class="muted" style="margin-top:6px">📝 ${esc(r['Notas'])}</div>` : ''}
     <div class="rows">${rows || '<div class="muted">Sin participaciones.</div>'}</div>
@@ -536,12 +611,11 @@ function renderCompradores() {
     { h: 'Código', k: 'Código', f: r => `<span class="mono">${esc(r['Código'])}</span>` },
     { h: 'Nombre', k: 'Apellidos', f: r => `<b>${esc(r['Apellidos'])}, ${esc(r['Nombre'])}</b>` },
     { h: 'Teléfono', k: 'Teléfono', f: r => `<span class="mono">${esc(r['Teléfono'])}</span>` },
-    { h: 'Vinculación', k: 'Vinculación', f: r => esc(r['Vinculación']) },
     { h: 'Recogida', k: 'Día recogida', f: r => diaCorto(r['Día recogida']) },
-    { h: 'Sueltas', k: 'Sueltas', n: 1, sv: r => Number(r['Sueltas']) || 0, f: r => Number(r['Sueltas']) ? (r['Sueltas entregadas'] !== '' ? `<span class="ok">${r['Sueltas entregadas']} ✓</span>` : `<span class="pend">${r['Sueltas']}</span>`) : '–' },
+    { h: 'Sueltas', k: 'Sueltas', n: 1, sv: r => Number(r['Sueltas']) || 0, f: r => Number(r['Sueltas']) ? (r['Sueltas entregadas'] !== '' ? `<span class="ok">${r['Sueltas entregadas']} ✓</span><div class="mono muted" style="font-size:11px">${esc(r['Participaciones'])}</div>` : `<span class="pend">${r['Sueltas']}</span>`) : '–' },
     { h: 'Tacos', k: 'Tacos', sv: r => Number(r['Tacos']) || 0, f: r => {
         const tk = TAC[r['Código']] || [];
-        const s = tk.map(t => `<span class="mono" title="${esc(t['ID'])}">${t['Desde']}–${t['Hasta']}</span>${t['Estado'] === 'Liquidado' ? ' ✓' : ''}`).join('<br>');
+        const s = tk.map(t => `<span class="mono" title="${esc(t['ID'])}">${txtTaco(t)}</span>${t['Estado'] === 'Liquidado' ? ' ✓' : ''}`).join('<br>');
         return (s || '') + (tPend(r) && !inactiva(r) ? `${s ? '<br>' : ''}<span class="pend">${tPend(r)} por entregar</span>` : '') || '–';
       } },
     { h: 'Pagado', k: 'pag', n: 1, sv: pagado, f: r => pagado(r) ? eur(pagado(r)) : '–' },
@@ -551,7 +625,7 @@ function renderCompradores() {
   ];
   list.forEach(r => r._cls = inactiva(r) ? 'done' : '');
   const tot = (fn) => list.reduce((a, r) => a + fn(r), 0);
-  tabla('cTbl', cols, list, ['', `${list.length} personas`, '', '', '',
+  tabla('cTbl', cols, list, ['', `${list.length} personas`, '', '',
     int(tot(r => inactiva(r) ? 0 : Number(r['Sueltas']) || 0)), int(tot(r => inactiva(r) ? 0 : Number(r['Tacos']) || 0)) + ' tacos',
     eur(tot(pagado)), eur(tot(porCobrar)), '', '']);
 }
@@ -565,12 +639,13 @@ function renderTacos() {
     if (f === 'venc' && !tacoVencido(t)) return false;
     if (f === 'liq' && t['Estado'] !== 'Liquidado') return false;
     if (q) {
-      const inR = /^\d{1,6}$/.test(q) && num >= Number(t['Desde']) && num <= Number(t['Hasta']);
+      const tq = q.match(/^t\s?(\d{1,2})$/);
+      const inR = (/^\d{1,5}$/.test(q) && num >= Number(t['Desde']) && num <= Number(t['Hasta'])) || (tq && +tq[1] === +t['Talonario']);
       if (!inR && !norm([t['ID'], t['Código reserva'], t['Titular'], t['Teléfono']].join(' ')).includes(q)) return false;
     }
     return true;
   });
-  if (!sortState.tTbl) list.sort((a, b) => Number(a['Desde']) - Number(b['Desde']));
+  if (!sortState.tTbl) list.sort((a, b) => Number(a['Talonario']) - Number(b['Talonario']));
   const fuera = D.tacos.filter(t => t['Estado'] === 'En depósito');
   const plazo = dias(D.config.limiteLiq, D.hoy);
   $('tInfo').innerHTML = `Plazo para liquidar: <b>${esc(D.config.limiteLiqEtiqueta)}</b> (${plazo >= 0 ? 'faltan ' + plazo + ' días' : '<span class="red">vencido</span>'}) · <b>${pl(fuera.length, 'taco', 'tacos')}</b> sin liquidar · <b>${eur(fuera.reduce((a, t) => a + Number(t['Participaciones']) * P(), 0))}</b> como máximo por cobrar.`;
@@ -578,11 +653,11 @@ function renderTacos() {
     { h: 'Taco', k: 'ID', f: t => `<span class="mono">${esc(t['ID'])}</span>` },
     { h: 'Titular', k: 'Titular', f: t => `<b>${esc(t['Titular'])}</b> <span class="muted mono">${esc(t['Código reserva'])}</span>` },
     { h: 'Teléfono', k: 'Teléfono', f: t => `<span class="mono">${esc(t['Teléfono'])}</span>` },
-    { h: 'Números', k: 'Desde', sv: t => Number(t['Desde']), f: t => `<span class="mono">${t['Desde']}–${t['Hasta']}</span>` },
+    { h: 'Talonario', k: 'Talonario', sv: t => Number(t['Talonario']), f: t => `<span class="mono">${txtTaco(t)}</span>` },
     { h: 'Entregado', k: 'Fecha entrega', f: t => `${fecha(t['Fecha entrega'])} <span class="muted">${esc(t['Entregado por'])}</span>` },
     { h: 'Estado', k: 'Estado', f: t => t['Estado'] === 'Liquidado' ? `<span class="badge b-Liquidado">Liquidado ${fecha(t['Fecha liquidación'])}</span>` : `<span class="badge ${tacoVencido(t) ? 'b-Vencido' : 'b-Fuera'}">${tacoVencido(t) ? 'Fuera de plazo' : 'Sin liquidar'}</span>` },
-    { h: 'Vendidas', k: 'Vendidas', n: 1, sv: t => Number(t['Vendidas']) || 0, f: t => t['Estado'] === 'Liquidado' ? `${t['Vendidas']} / ${t['Participaciones']}` : '–' },
-    { h: 'Cobrado', k: 'Importe liquidado', n: 1, sv: t => Number(t['Importe liquidado']) || 0, f: t => t['Estado'] === 'Liquidado' ? eur(t['Importe liquidado']) : '–' },
+    { h: 'Vendidas', k: 'Vendidas', n: 1, sv: t => Number(t['Vendidas']) || 0, f: t => t['Estado'] === 'Liquidado' ? `${t['Vendidas']} / ${t['Participaciones']}${t['Nº devueltos'] ? `<div class="muted" style="font-size:11px">devueltas: ${esc(t['Nº devueltos'])}</div>` : ''}` : '–' },
+    { h: 'Cobrado', k: 'Importe liquidado', n: 1, sv: t => Number(t['Importe liquidado']) || 0, f: t => t['Estado'] === 'Liquidado' ? eur(t['Importe liquidado']) + (t['Medio de pago'] ? ` <span class="muted">${esc(t['Medio de pago'])}</span>` : '') : '–' },
     { h: 'Por cobrar (máx.)', k: 'pc', n: 1, sv: t => t['Estado'] === 'En depósito' ? Number(t['Participaciones']) : 0, f: t => t['Estado'] === 'En depósito' ? `<span class="pend">${eur(Number(t['Participaciones']) * P())}</span>` : '–' },
     { h: '', f: t => t['Estado'] === 'En depósito'
         ? `<button class="btn pri sm" data-act="liq" data-id="${esc(t['ID'])}">Liquidar</button> <a class="wa" target="_blank" rel="noopener" href="${waLink(t['Teléfono'], msgTaco(t))}">WhatsApp</a>`
@@ -650,27 +725,34 @@ function renderVentas() {
   D.caja.forEach(m => { porDia[m['Fecha']] = (porDia[m['Fecha']] || 0) + (Number(m['Importe']) || 0); });
   const ks = Object.keys(porDia).sort(), mx = Math.max(1, ...ks.map(k => porDia[k]));
   $('vDias').innerHTML = ks.length ? ks.map(k => `<div class="barrow"><span>${diaCorto(k)}</span><div class="b" style="width:${Math.max(0, porDia[k]) / mx * 100}%"></div><span class="mono" style="text-align:right">${eur0(porDia[k])}</span></div>`).join('') : '<p class="muted">Todavía no hay cobros.</p>';
-  const pv = {};
-  act.forEach(x => {
-    const v = x['Vinculación'] || '—';
-    pv[v] = pv[v] || { personas: 0, part: 0 };
-    pv[v].personas++;
-    pv[v].part += (Number(x['Sueltas entregadas']) || 0) + (TAC[x['Código']] || []).reduce((a, t) => a + (Number(t['Vendidas']) || 0), 0);
-  });
-  $('vVinc').innerHTML = '<tr><th>Vinculación</th><th class="n">Personas</th><th class="n">Part. vendidas</th></tr>' +
-    Object.keys(pv).sort((a, b) => pv[b].part - pv[a].part).map(k => `<tr><td>${esc(k)}</td><td class="n">${pv[k].personas}</td><td class="n">${int(pv[k].part)}</td></tr>`).join('');
+  const med = { Efectivo: 0, TPV: 0 };
+  D.caja.forEach(m => { med[m['Medio'] === 'TPV' ? 'TPV' : 'Efectivo'] += Number(m['Importe']) || 0; });
+  $('vMedio').innerHTML = '<tr><th>Medio</th><th class="n">Importe</th></tr>' +
+    `<tr><td>Efectivo</td><td class="n">${eur(med.Efectivo)}</td></tr><tr><td>TPV</td><td class="n">${eur(med.TPV)}</td></tr>`;
+  let html = '';
+  for (let t = 1; t <= NT(); t++) {
+    const rg = rangoT(t), tk = USO.taco[t];
+    let vend = 0, fuera = 0;
+    for (let x = rg[0]; x <= rg[1]; x++) { const u = USO.set[t + ':' + x]; if (!u) continue; if (tk && u === tk['ID'] && tk['Estado'] === 'En depósito') fuera++; else vend++; }
+    const libre = n() - vend - fuera;
+    const quien = tk ? `Taco de ${esc(tk['Titular'])}${tk['Estado'] === 'Liquidado' ? ' (liquidado)' : ''}` : (vend ? 'Sueltas' : 'Libre');
+    html += `<div class="tal ${tk && tk['Estado'] === 'En depósito' ? 'taco' : ''} ${!vend && !fuera ? 'free' : ''}"><b>T${t}</b> <span class="muted">${rg[0]}–${rg[1]}</span>
+      <div class="bar2"><div style="width:${vend / n() * 100}%;background:#1E7B3A"></div><div style="width:${fuera / n() * 100}%;background:#1F4E9A"></div></div>
+      <div>${quien}</div><div class="muted">${vend} vendidas · ${libre} libres</div></div>`;
+  }
+  $('vTal').innerHTML = html;
 }
 
 /* ===== CAJA ===== */
 function renderCaja() {
   const p = D.pendiente;
   $('kDesde').textContent = p.desde ? 'Desde el último cierre (' + fechaL(p.desde.slice(0, 10)) + ' ' + p.desde.slice(11, 16) + ')' : 'Desde el inicio: todavía no hay cierres.';
-  $('kMovs').innerHTML = '<tr><th>Fecha</th><th>Hora</th><th>Concepto</th><th>Reserva</th><th>Cobró</th><th class="n">Importe</th></tr>' +
-    p.movimientos.map(m => `<tr><td>${fecha(m['Fecha'])}</td><td>${esc(String(m['Hora']).slice(0, 5))}</td><td>${esc(m['Concepto'])}</td><td class="mono">${esc(m['Código'])}</td><td>${esc(m['Cobrado por'])}</td><td class="n ${Number(m['Importe']) < 0 ? 'red' : ''}">${eur(m['Importe'])}</td></tr>`).join('') +
-    `<tfoot><tr><td colspan="5">Total en caja sin cerrar</td><td class="n">${eur(p.total)}</td></tr></tfoot>`;
+  $('kMovs').innerHTML = '<tr><th>Fecha</th><th>Hora</th><th>Concepto</th><th>Reserva</th><th>Cobró</th><th>Medio</th><th class="n">Importe</th></tr>' +
+    p.movimientos.map(m => `<tr><td>${fecha(m['Fecha'])}</td><td>${esc(String(m['Hora']).slice(0, 5))}</td><td>${esc(m['Concepto'])}</td><td class="mono">${esc(m['Código'])}</td><td>${esc(m['Cobrado por'])}</td><td>${esc(m['Medio'] || 'Efectivo')}</td><td class="n ${Number(m['Importe']) < 0 ? 'red' : ''}">${eur(m['Importe'])}</td></tr>`).join('') +
+    `<tfoot><tr><td colspan="6">Efectivo que debe haber en la caja</td><td class="n">${eur(p.total)}</td></tr><tr><td colspan="6">Cobrado por TPV (no está en la caja)</td><td class="n">${eur(p.tpv || 0)}</td></tr></tfoot>`;
   $('kEsperado').value = eur(p.total);
-  $('kHist').innerHTML = '<tr><th>Fecha</th><th class="n">Esperado</th><th class="n">Contado</th><th class="n">Dif.</th><th>Quién</th><th>Notas</th></tr>' +
-    D.cierres.slice().reverse().map(c => `<tr><td>${fecha(c['Fecha'])} ${esc(String(c['Hora']).slice(0, 5))}</td><td class="n">${eur(c['Esperado'])}</td><td class="n">${eur(c['Contado'])}</td><td class="n ${Number(c['Diferencia']) ? 'red' : ''}">${eur(c['Diferencia'])}</td><td>${esc(c['Firmas'])}</td><td>${esc(c['Notas'])}</td></tr>`).join('');
+  $('kHist').innerHTML = '<tr><th>Fecha</th><th class="n">Efectivo esperado</th><th class="n">Contado</th><th class="n">Dif.</th><th class="n">TPV</th><th>Quién</th><th>Notas</th></tr>' +
+    D.cierres.slice().reverse().map(c => `<tr><td>${fecha(c['Fecha'])} ${esc(String(c['Hora']).slice(0, 5))}</td><td class="n">${eur(c['Esperado'])}</td><td class="n">${eur(c['Contado'])}</td><td class="n ${Number(c['Diferencia']) ? 'red' : ''}">${eur(c['Diferencia'])}</td><td class="n">${eur(c['TPV del periodo'])}</td><td>${esc(c['Firmas'])}</td><td>${esc(c['Notas'])}</td></tr>`).join('');
 }
 
 /* ===== REGISTRO ===== */
@@ -703,57 +785,93 @@ const getT = id => D.tacos.find(t => t['ID'] === id);
 let fichaAbierta = null;
 async function tras(msg) { toast(msg); await load(); if (fichaAbierta && $('dlg').open) verFicha(fichaAbierta); else closeDlg(); }
 
+const medioHtml = (def) => `<label>¿Cómo paga?</label><div class="medio">
+  <label><input type="radio" name="dMedio" value="Efectivo" ${def === 'Efectivo' ? 'checked' : ''}>Efectivo</label>
+  <label><input type="radio" name="dMedio" value="TPV" ${def === 'TPV' ? 'checked' : ''}>TPV</label></div>`;
+const medioSel = () => (document.querySelector('input[name=dMedio]:checked') || {}).value;
+
 function dlgSueltas(c) {
   const r = getR(c), q = Number(r['Sueltas']);
+  const prop = proponerSueltas(q);
+  const fila = (g) => `<div class="grp"><select class="gT">${Array.from({ length: NT() }, (_, i) => i + 1).filter(t => !tacoFuera(t)).map(t => `<option value="${t}" ${g && g.t === t ? 'selected' : ''}>Talonario ${t}</option>`).join('')}</select>
+    <input class="gN" placeholder="p. ej. 1, 2, 3 o 1-3" value="${g ? fmtNums(g.nums) : ''}"><span class="muted gC"></span><button class="lnk gX" title="Quitar">✕</button></div>`;
   openDlg('Cobrar y entregar sueltas · ' + c,
-    `<p style="font-size:16px"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b></p>
-     <div class="row2"><div><label>Participaciones que se lleva</label><input id="dQ" type="number" min="1" value="${q}"></div>
-     <div><label>Cobrar en efectivo</label><div class="bigv" id="dImp">${eur(q * P())}</div></div></div>
+    `<p style="font-size:16px;margin-top:0"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · tiene reservadas <b>${q}</b></p>
+     <label>¿Qué participaciones le das? (talonario y números)</label>
+     <div id="dGrupos">${(prop.length ? prop : [null]).map(fila).join('')}</div>
+     <button class="lnk" id="dAdd" style="margin-top:6px">+ otro talonario</button>
+     <p class="muted" style="font-size:12px">Te proponemos las siguientes libres. Si das otras, cámbialas.</p>
+     ${medioHtml('Efectivo')}
+     <p style="margin-top:12px">Se lleva <b id="dCant">0</b> · Cobrar: <span class="bigv" id="dImp">0 €</span></p>
      <div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Cobrado y entregado', cls: 'pri', fn: e => run(e.target, async () => {
-      const d = await api({ action: 'entregarSueltas', codigo: c, cantidad: Number($('dQ').value) });
-      await tras('Cobrados ' + eur(d.importe) + ' a ' + r['Nombre']);
+      const grupos = leerGrupos();
+      if (!grupos.length) throw new Error('Indica qué participaciones le das.');
+      const d = await api({ action: 'entregarSueltas', codigo: c, medio: medioSel(), grupos: grupos.map(g => ({ talonario: g.t, nums: fmtNums(g.nums) })) });
+      await tras('Cobrados ' + eur(d.importe) + ' (' + d.medio + ') a ' + r['Nombre'] + ' · ' + d.participaciones);
     }) }]);
-  $('dQ').addEventListener('input', () => $('dImp').textContent = eur((Number($('dQ').value) || 0) * P()));
-  $('dQ').focus(); $('dQ').select();
+  const leerGrupos = () => [...document.querySelectorAll('#dGrupos .grp')].map(el => ({ t: +el.querySelector('.gT').value, nums: parseNums(el.querySelector('.gN').value) })).filter(g => g.nums.length);
+  const upd = () => {
+    let tot = 0; $('dlgErr').textContent = '';
+    document.querySelectorAll('#dGrupos .grp').forEach(el => {
+      try {
+        const t = +el.querySelector('.gT').value, nums = parseNums(el.querySelector('.gN').value), rg = rangoT(t);
+        const mal = nums.find(x => x < rg[0] || x > rg[1]), usada = nums.find(x => USO.set[t + ':' + x]);
+        if (mal) $('dlgErr').textContent = `La ${mal} no es del talonario ${t} (${rg[0]}–${rg[1]}).`;
+        else if (usada) $('dlgErr').textContent = `La ${usada} del talonario ${t} ya está entregada.`;
+        el.querySelector('.gC').textContent = nums.length + ' part.'; tot += nums.length;
+      } catch (er) { $('dlgErr').textContent = er.message; }
+    });
+    $('dCant').textContent = tot + (tot === 1 ? ' participación' : ' participaciones') + (tot !== q ? ` (reservó ${q})` : '');
+    $('dImp').textContent = eur(tot * P());
+  };
+  $('dGrupos').addEventListener('input', upd); $('dGrupos').addEventListener('change', upd);
+  $('dGrupos').addEventListener('click', ev => { if (ev.target.classList.contains('gX')) { ev.target.closest('.grp').remove(); upd(); } });
+  $('dAdd').addEventListener('click', () => { $('dGrupos').insertAdjacentHTML('beforeend', fila(null)); upd(); });
+  upd();
 }
-function solape(desde, hasta) { return D.tacos.find(t => !(hasta < Number(t['Desde']) || desde > Number(t['Hasta']))); }
-function dlgTaco(c, desde) {
-  const r = getR(c), hasta = desde + n() - 1, s = solape(desde, hasta);
-  if (!(desde >= 0)) return toast('Escribe el primer número del taco.');
-  if (s) return toast(`Ese rango se solapa con el taco ${s['ID']} (${s['Desde']}–${s['Hasta']}).`);
+function dlgTaco(c, tal) {
+  const r = getR(c);
+  if (!(tal >= 1)) return toast('No quedan talonarios completos libres.');
+  const rg = rangoT(tal);
   openDlg('Entregar taco · ' + c,
-    `<p style="font-size:16px"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · ${esc(r['Teléfono'])}</p>
-     <p>Participaciones <span class="bigv">${desde}–${hasta}</span></p>
+    `<p style="font-size:16px;margin-top:0"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · ${esc(r['Teléfono'])}</p>
+     <p>Talonario <span class="bigv">${tal}</span> &nbsp; participaciones <span class="bigv">${rg[0]}–${rg[1]}</span></p>
      <p class="muted">${n()} participaciones · ${eur(n() * P())} si las vende todas.</p>
      <div class="note"><b>Díselo en voz alta:</b> antes del ${esc(D.config.limiteLiqEtiqueta.toLowerCase())} trae el dinero de lo vendido y devuelve lo que no hayas vendido. Lo que no devuelvas, lo pagas.${r['Email'] ? ' (Le llegará un correo con sus números.)' : ''}</div>
      <div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Entregado', cls: 'dark', fn: e => run(e.target, async () => {
-      const d = await api({ action: 'entregarTaco', codigo: c, desde: desde });
-      await tras('Taco ' + d.id + ' (' + d.desde + '–' + d.hasta + ') entregado a ' + r['Nombre']);
+      const d = await api({ action: 'entregarTaco', codigo: c, talonario: tal });
+      await tras('Talonario ' + d.talonario + ' (' + d.desde + '–' + d.hasta + ') entregado a ' + r['Nombre']);
     }) }]);
 }
 function dlgLiq(id) {
   const t = getT(id), m = Number(t['Participaciones']);
   openDlg('Liquidar taco ' + id,
-    `<p style="font-size:16px"><b>${esc(t['Titular'])}</b> · participaciones <span class="mono">${t['Desde']}–${t['Hasta']}</span></p>
-     <div class="row2"><div><label>¿Cuántas devuelve sin vender?</label><input id="dDev" type="number" min="0" max="${m}" value="0"></div>
-     <div><label>Vendidas</label><div class="bigv" id="dVend">${m}</div></div></div>
-     <p>Cobrar en efectivo: <span class="bigv" id="dImp">${eur(m * P())}</span></p>
-     <div class="note">Cuenta las devueltas antes de confirmar y guárdalas aparte: vuelven a estar a la venta.</div>
+    `<p style="font-size:16px;margin-top:0"><b>${esc(t['Titular'])}</b> · <span class="mono">${txtTaco(t)}</span></p>
+     <label>¿Qué participaciones devuelve sin vender? (déjalo vacío si las ha vendido todas)</label>
+     <input id="dDev" placeholder="p. ej. ${t['Desde']}, ${+t['Desde'] + 1} o ${+t['Hasta'] - 4}-${t['Hasta']}">
+     <p>Devuelve <b id="dNDev">0</b> · Vendidas <b id="dVend">${m}</b> · Cobrar: <span class="bigv" id="dImp">${eur(m * P())}</span></p>
+     <div id="dMedioBox">${medioHtml('Efectivo')}</div>
+     <div class="note">Comprueba que los números que escribes son los que te devuelve y guárdalas aparte: vuelven a estar a la venta.</div>
      <label>Notas (opcional)</label><input id="dNotas">
      <div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Cobrado y liquidado', cls: 'pri', fn: e => run(e.target, async () => {
-      const dev = Number($('dDev').value);
-      if (!(dev >= 0 && dev <= m)) throw new Error('Las devueltas tienen que estar entre 0 y ' + m + '.');
-      const d = await api({ action: 'liquidarTaco', id: id, vendidas: m - dev, notas: $('dNotas').value });
+      const dev = parseNums($('dDev').value);
+      const d = await api({ action: 'liquidarTaco', id: id, devueltos: fmtNums(dev), medio: medioSel(), notas: $('dNotas').value });
       await tras('Taco ' + id + ' liquidado: ' + eur(d.importe));
     }) }]);
   $('dDev').addEventListener('input', () => {
-    const dev = Math.max(0, Math.min(m, Number($('dDev').value) || 0));
-    $('dVend').textContent = m - dev; $('dImp').textContent = eur((m - dev) * P());
+    $('dlgErr').textContent = '';
+    try {
+      const dev = parseNums($('dDev').value), mal = dev.find(x => x < +t['Desde'] || x > +t['Hasta']);
+      if (mal) $('dlgErr').textContent = `La ${mal} no es de este taco (${t['Desde']}–${t['Hasta']}).`;
+      const v = m - dev.length;
+      $('dNDev').textContent = dev.length; $('dVend').textContent = v; $('dImp').textContent = eur(v * P());
+      $('dMedioBox').hidden = v === 0;
+    } catch (er) { $('dlgErr').textContent = er.message; }
   });
-  $('dDev').focus(); $('dDev').select();
+  $('dDev').focus();
 }
 function confirmar(title, html, okText, fn) {
   openDlg(title, html + '<div class="err" id="dlgErr"></div>', [cancelBtn, { text: okText, cls: 'dark', fn: e => run(e.target, fn) }]);
@@ -764,18 +882,17 @@ function verFicha(c) {
 }
 function dlgNueva() {
   fichaAbierta = null;
-  const v = D.config.vinculaciones.map(x => `<option>${esc(x)}</option>`).join('');
   const ds = `<option value="${D.hoy}">Hoy (${fechaL(D.hoy)})</option>` + D.dias.filter(d => d.fecha !== D.hoy).map(d => `<option value="${d.fecha}">${esc(d.etiqueta)}</option>`).join('');
   openDlg('Nueva reserva',
     `<p class="muted" style="margin-top:0">Para quien llega sin reserva o llama por teléfono. No se aplican los topes por familia, pero sí lo que quede.</p>
      <div class="row2"><div><label>Nombre</label><input id="nNombre"></div><div><label>Apellidos</label><input id="nApellidos"></div></div>
      <div class="row2"><div><label>Teléfono</label><input id="nTel" inputmode="tel"></div><div><label>Email (opcional)</label><input id="nEmail" type="email"></div></div>
-     <div class="row2"><div><label>Vinculación</label><select id="nVinc">${v}</select></div><div><label>Día de recogida</label><select id="nDia">${ds}</select></div></div>
+     <label>Día de recogida</label><select id="nDia">${ds}</select>
      <div class="row2"><div><label>Participaciones sueltas</label><input id="nSueltas" type="number" min="0" value="0"></div><div><label>Tacos</label><input id="nTacos" type="number" min="0" value="0"></div></div>
      <label>Notas</label><input id="nNotas"><div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Crear reserva', cls: 'pri', fn: e => run(e.target, async () => {
       const d = await api({ action: 'nuevaReserva', nombre: $('nNombre').value, apellidos: $('nApellidos').value, telefono: $('nTel').value,
-        email: $('nEmail').value, vinculacion: $('nVinc').value, sueltas: Number($('nSueltas').value) || 0, tacos: Number($('nTacos').value) || 0,
+        email: $('nEmail').value, sueltas: Number($('nSueltas').value) || 0, tacos: Number($('nTacos').value) || 0,
         dia: $('nDia').value, notas: $('nNotas').value });
       await load(); toast('Reserva ' + d.codigo + ' creada'); verFicha(d.codigo);
     }) }]);
@@ -793,10 +910,10 @@ document.addEventListener('click', async e => {
     case 'excel': return excel();
     case 'ficha': return verFicha(c);
     case 'suel': return dlgSueltas(c);
-    case 'taco': return dlgTaco(c, Number($(b.dataset.inp).value));
+    case 'taco': return dlgTaco(c, $(b.dataset.inp) ? Number($(b.dataset.inp).value) : 0);
     case 'liq': return dlgLiq(id);
-    case 'dsuel': return confirmar('Deshacer recogida · ' + c, `<p>Se anula la recogida de las sueltas de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b> y se resta <b>${eur(getR(c)['Importe sueltas'])}</b> de la caja. Devuélvele el dinero y recoge las participaciones.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerSueltas', codigo: c }); await tras('Recogida deshecha'); });
-    case 'dtaco': return confirmar('Deshacer entrega · ' + id, `<p>Se anula la entrega del taco <b>${esc(id)}</b> (${getT(id)['Desde']}–${getT(id)['Hasta']}). Recoge el taco.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerTaco', id: id }); await tras('Entrega deshecha'); });
+    case 'dsuel': return confirmar('Deshacer recogida · ' + c, `<p>Se anula la recogida de las sueltas de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b> (${esc(getR(c)['Participaciones'])}) y se restan <b>${eur(getR(c)['Importe sueltas'])}</b> (${esc(getR(c)['Medio de pago'])}). Devuélvele el dinero y recoge las participaciones.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerSueltas', codigo: c }); await tras('Recogida deshecha'); });
+    case 'dtaco': return confirmar('Deshacer entrega · ' + id, `<p>Se anula la entrega del taco <b>${esc(id)}</b> (talonario ${getT(id)['Talonario']}). Recoge el talonario.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerTaco', id: id }); await tras('Entrega deshecha'); });
     case 'dliq': return confirmar('Deshacer liquidación · ' + id, `<p>El taco <b>${esc(id)}</b> vuelve a quedar sin liquidar y se restan <b>${eur(getT(id)['Importe liquidado'])}</b> de la caja.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerLiquidacion', id: id }); await tras('Liquidación deshecha'); });
     case 'nota': return openDlg('Nota · ' + c, `<label>Nota</label><textarea id="dNota" rows="3"></textarea><div class="err" id="dlgErr"></div>`,
       [cancelBtn, { text: 'Guardar', cls: 'pri', fn: ev => run(ev.target, async () => { await api({ action: 'nota', codigo: c, nota: $('dNota').value }); await tras('Nota guardada'); }) }]);
@@ -854,8 +971,10 @@ async function excel() {
     ['Libres para vender', libres, libres * p],
     [], ['DINERO', '', 'Importe (€)'],
     ['Cobrado (movimientos de caja)', '', r.totalCaja],
+    ['   en efectivo', '', D.caja.filter(x => x['Medio'] !== 'TPV').reduce((a, x) => a + (Number(x['Importe']) || 0), 0)],
+    ['   por TPV', '', D.caja.filter(x => x['Medio'] === 'TPV').reduce((a, x) => a + (Number(x['Importe']) || 0), 0)],
     ['   de sueltas', '', r.importeSueltas], ['   de tacos liquidados', '', r.importeTacos],
-    ['Contado en cierres de caja', '', tc], ['Diferencias en cierres', '', td], ['Sin cerrar ahora mismo', '', D.pendiente.total],
+    ['Efectivo contado en cierres de caja', '', tc], ['Diferencias en cierres', '', td], ['Efectivo sin cerrar ahora mismo', '', D.pendiente.total],
     ['Desglose de lo vendido: juega', '', r.jugadoEstimado], ['Desglose de lo vendido: donativo para el club', '', r.donativoEstimado],
     [], ['TACOS', 'Cantidad', ''],
     ['Ofrecidos', c.tacosDisp, ''], ['Entregados', r.tacosEntregados, ''], ['Sin liquidar', r.tacosEnDeposito, ''], ['Fuera de plazo', r.tacosVencidos, ''], ['Liquidados', r.tacosLiquidados, ''], ['Participaciones devueltas', r.devueltasTacos, '']
@@ -864,18 +983,18 @@ async function excel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
   XLSX.utils.book_append_sheet(wb, hoja(D.reservas, [
-    ['Código', 'Código'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Email', 'Email'], ['Vinculación', 'Vinculación'],
+    ['Código', 'Código'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Email', 'Email'],
     ['Estado', x => noVino(x) ? 'No vino' : x['Estado']], ['Día recogida', 'Día recogida'],
-    ['Sueltas reservadas', 'Sueltas'], ['Sueltas recogidas', 'Sueltas entregadas'], ['Tacos reservados', 'Tacos'],
-    ['Números de sus tacos', x => (TAC[x['Código']] || []).map(t => t['Desde'] + '-' + t['Hasta']).join(', ')],
+    ['Sueltas reservadas', 'Sueltas'], ['Sueltas recogidas', 'Sueltas entregadas'], ['Participaciones sueltas', 'Participaciones'], ['Pagó sueltas con', 'Medio de pago'], ['Tacos reservados', 'Tacos'],
+    ['Sus tacos', x => (TAC[x['Código']] || []).map(t => 'T' + t['Talonario'] + ' (' + t['Desde'] + '-' + t['Hasta'] + ')').join(', ')],
     ['Pagado (€)', pagado], ['Pendiente (€)', porCobrar], ['Notas', 'Notas']]), 'Compradores');
   XLSX.utils.book_append_sheet(wb, hoja(D.tacos, [
-    ['ID', 'ID'], ['Titular', 'Titular'], ['Teléfono', 'Teléfono'], ['Desde', 'Desde'], ['Hasta', 'Hasta'], ['Participaciones', 'Participaciones'],
+    ['ID', 'ID'], ['Titular', 'Titular'], ['Teléfono', 'Teléfono'], ['Talonario', 'Talonario'], ['Desde', 'Desde'], ['Hasta', 'Hasta'], ['Participaciones', 'Participaciones'],
     ['Entregado', 'Fecha entrega'], ['Entregado por', 'Entregado por'], ['Estado', t => tacoVencido(t) ? 'Fuera de plazo' : t['Estado']],
-    ['Vendidas', 'Vendidas'], ['Devueltas', 'Devueltas'], ['Cobrado (€)', 'Importe liquidado'],
+    ['Vendidas', 'Vendidas'], ['Devueltas', 'Devueltas'], ['Nº devueltos', 'Nº devueltos'], ['Cobrado (€)', 'Importe liquidado'], ['Medio', 'Medio de pago'],
     ['Por cobrar máx. (€)', t => t['Estado'] === 'En depósito' ? Number(t['Participaciones']) * p : 0], ['Liquidado el', 'Fecha liquidación'], ['Notas', 'Notas']]), 'Tacos');
-  XLSX.utils.book_append_sheet(wb, hoja(D.caja, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Concepto', 'Concepto'], ['Código', 'Código'], ['Importe (€)', 'Importe'], ['Cobrado por', 'Cobrado por']]), 'Caja');
-  XLSX.utils.book_append_sheet(wb, hoja(D.cierres, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Esperado (€)', 'Esperado'], ['Contado (€)', 'Contado'], ['Diferencia (€)', 'Diferencia'], ['Firmas', 'Firmas'], ['Notas', 'Notas']]), 'Cierres');
+  XLSX.utils.book_append_sheet(wb, hoja(D.caja, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Concepto', 'Concepto'], ['Código', 'Código'], ['Importe (€)', 'Importe'], ['Medio', x => x['Medio'] || 'Efectivo'], ['Cobrado por', 'Cobrado por']]), 'Caja');
+  XLSX.utils.book_append_sheet(wb, hoja(D.cierres, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Esperado (€)', 'Esperado'], ['Contado (€)', 'Contado'], ['Diferencia (€)', 'Diferencia'], ['TPV del periodo (€)', 'TPV del periodo'], ['Firmas', 'Firmas'], ['Notas', 'Notas']]), 'Cierres');
   XLSX.utils.book_append_sheet(wb, hoja(D.reservas.filter(noVino), [['Código', 'Código'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Día elegido', 'Día recogida'], ['Pendiente (€)', porCobrar]]), 'No vinieron');
   XLSX.utils.book_append_sheet(wb, hoja(D.registro, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Quién', 'Usuario'], ['Acción', 'Acción'], ['Código', 'Código'], ['Detalle', 'Detalle']]), 'Registro');
   XLSX.writeFile(wb, 'Loteria_TRC_cuentas_' + D.hoy + '.xlsx');
