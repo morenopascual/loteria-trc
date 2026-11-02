@@ -87,7 +87,7 @@
     <h2>Cómo funciona</h2>
     <ol class="pasos">
       <li><b>Reserva aquí</b> y elige el <span class="t-horario">martes o jueves</span> en que vas a recoger. Sin reserva no hay lotería.</li>
-      <li><b>Paga en efectivo</b> las participaciones sueltas al recogerlas, en <span class="t-lugar">el club</span>.</li>
+      <li><b>Paga</b> las participaciones sueltas al recogerlas en <span class="t-lugar">el club</span>. Mejor en efectivo, aunque también hay datáfono.</li>
       <li><b>Si te llevas un taco para vender</b>, tienes hasta el <span class="t-limite">plazo</span> para traer el dinero de lo vendido y devolver lo que sobre.</li>
     </ol>
   </section>
@@ -105,8 +105,6 @@
           <div><label for="telefono">Teléfono móvil</label><input id="telefono" type="tel" inputmode="tel" autocomplete="tel" required></div>
           <div><label for="email">Email <span class="opt">(opcional, para la confirmación)</span></label><input id="email" type="email" autocomplete="email"></div>
         </div>
-        <label for="vinculacion">Vinculación con el club</label>
-        <select id="vinculacion" required><option value="">Elige una opción</option></select>
 
         <label>¿Qué quieres?</label>
         <div class="qty">
@@ -192,7 +190,7 @@ function render() {
     i.parentNode.style.opacity = off ? .35 : 1;
   });
   let t = '';
-  if (q.sueltas) t += `Al recoger traes <b>${eur(q.sueltas * C.precio)}</b> en efectivo por las sueltas.`;
+  if (q.sueltas) t += `Al recoger pagas <b>${eur(q.sueltas * C.precio)}</b> por las sueltas, mejor en efectivo (también hay datáfono).`;
   if (q.tacos) t += (t ? '<br>' : '') + `Los tacos se pagan al liquidarlos, solo lo vendido.`;
   $('total').innerHTML = t;
 }
@@ -222,7 +220,6 @@ async function init() {
   setText('t-lugar', C.lugar);
   setText('t-limite', C.limiteLiqEtiqueta.toLowerCase());
   setText('t-contacto', C.contacto);
-  C.vinculaciones.forEach(v => { const o = document.createElement('option'); o.textContent = v; $('vinculacion').appendChild(o); });
   $('sueltasInfo').textContent = C.sueltasLibres > 0
     ? `${eur(C.precio)} cada una · máximo ${C.topeSueltas} por familia`
     : 'Agotadas';
@@ -250,14 +247,12 @@ $('f').addEventListener('submit', async ev => {
     action: 'reservar',
     nombre: $('nombre').value, apellidos: $('apellidos').value,
     telefono: $('telefono').value, email: $('email').value,
-    vinculacion: $('vinculacion').value,
     sueltas: q.sueltas, tacos: q.tacos, dia: dia,
     acepta: $('acepta').checked, web: $('web').value
   };
   // Comprobaciones rápidas; el servidor vuelve a comprobarlo todo.
   if (!body.nombre.trim() || !body.apellidos.trim()) return $('err').textContent = 'Faltan el nombre o los apellidos.';
   if (body.telefono.replace(/\D/g, '').length < 9) return $('err').textContent = 'Revisa el teléfono.';
-  if (!body.vinculacion) return $('err').textContent = 'Elige tu vinculación con el club.';
   if (!q.sueltas && !q.tacos) return $('err').textContent = 'Indica cuántas participaciones o tacos quieres.';
   if (!dia) return $('err').textContent = 'Elige el día de recogida.';
   if (!body.acepta) return $('err').textContent = 'Tienes que aceptar las condiciones.';
@@ -268,7 +263,7 @@ $('f').addEventListener('submit', async ev => {
     const d = r.data;
     $('okCodigo').textContent = d.codigo;
     let li = '';
-    if (d.sueltas) li += `<li>${d.sueltas} participaciones sueltas: trae <b>${eur(d.importeSueltas)} en efectivo</b>.</li>`;
+    if (d.sueltas) li += `<li>${d.sueltas} participaciones sueltas: paga <b>${eur(d.importeSueltas)}</b> al recogerlas (mejor en efectivo; también hay datáfono).</li>`;
     if (d.tacos) li += `<li>${d.tacos} ${d.tacos === 1 ? 'taco' : 'tacos'} para vender. Liquidación antes del ${d.limiteLiqEtiqueta.toLowerCase()}.</li>`;
     li += `<li>Recogida: <b>${d.diaEtiqueta}</b>, ${d.horario}, en ${d.lugar}.</li>`;
     $('okLista').innerHTML = li;
