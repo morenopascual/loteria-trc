@@ -167,7 +167,7 @@
     <nav class="tabs" id="tabs">
       <button data-tab="hoy" class="on">Hoy</button>
       <button data-tab="compradores">Compradores</button>
-      <button data-tab="tacos">Tacos <span class="n" id="nTacos"></span></button>
+      <button data-tab="tacos">Tacos <span class="n" id="badgeTacos"></span></button>
       <button data-tab="novinieron">No vinieron <span class="n red" id="nNoVin"></span></button>
       <button data-tab="ventas">Ventas</button>
       <button data-tab="caja">Caja</button>
@@ -465,7 +465,7 @@ function renderKpis() {
     k('En tacos sin liquidar', eur0(r.importeEnDeposito), pl(r.tacosEnDeposito, 'taco fuera', 'tacos fuera')) +
     k('Efectivo sin cerrar', eur0(D.pendiente.total), `+ ${eur0(D.pendiente.tpv || 0)} por TPV`, D.pendiente.total ? 'alert' : '') +
     k('Plazo de los tacos', plazo >= 0 ? plazo + ' días' : 'Vencido', D.config.limiteLiqEtiqueta, plazo <= 5 && r.tacosEnDeposito ? 'alert' : '');
-  $('nTacos').textContent = r.tacosEnDeposito || ''; $('nTacos').hidden = !r.tacosEnDeposito;
+  $('badgeTacos').textContent = r.tacosEnDeposito || ''; $('badgeTacos').hidden = !r.tacosEnDeposito;
   const nv = D.reservas.filter(noVino).length;
   $('nNoVin').textContent = nv; $('nNoVin').hidden = !nv;
 }
