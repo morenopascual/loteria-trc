@@ -3,279 +3,1004 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lotería de Navidad · Torrelodones Rugby Club</title>
-<meta name="description" content="Reserva tus participaciones de Lotería de Navidad del Torrelodones Rugby Club.">
+<meta name="robots" content="noindex, nofollow">
+<title>Gestión Lotería · TRC</title>
 <link rel="icon" href="https://torrelodonesrugby.com/wp-content/uploads/2023/04/cropped-TRC-270x270.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../config.js"></script>
 <style>
-  :root { --ink:#212121; --yellow:#FFD900; --paper:#F7F6F2; --line:#DDDAD0; --muted:#6B6B6B; --ok:#1E7B3A; --err:#B3261E; }
+  :root { --ink:#212121; --yellow:#FFD900; --paper:#F4F3EF; --line:#DAD7CE; --muted:#666; --ok:#1E7B3A; --okbg:#E3F3E7; --warn:#8A5A00; --warnbg:#FFF2C6; --err:#B3261E; --errbg:#FBE3E1; --blue:#1F4E9A; --bluebg:#E6EEFB; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:Inter, system-ui, sans-serif; color:var(--ink); background:var(--paper); line-height:1.5; }
-  .wrap { max-width:680px; margin:0 auto; padding:0 16px; }
-  header { background:var(--ink); color:#fff; padding:28px 0 32px; border-bottom:6px solid var(--yellow); }
-  .brandrow { display:flex; align-items:center; gap:12px; }
-  .escudo { width:56px; height:56px; border-radius:50%; background:#fff; display:grid; place-items:center; flex:none; overflow:hidden; }
-  .escudo img { width:46px; height:46px; object-fit:contain; }
-  .cta { display:inline-block; margin-top:18px; background:var(--yellow); color:var(--ink); font-family:Anton, sans-serif; font-size:20px; text-transform:uppercase; padding:12px 22px; text-decoration:none; letter-spacing:.03em; }
-  .club { font-family:'Barlow Semi Condensed', sans-serif; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--yellow); font-size:14px; }
-  h1 { font-family:Anton, sans-serif; font-weight:400; font-size:44px; line-height:1; margin:8px 0 18px; text-transform:uppercase; }
-  .nums { display:flex; flex-wrap:wrap; gap:10px; }
-  .part { display:block; width:100%; height:auto; margin:4px 0 6px; border:2px solid var(--yellow); }
-  .num { font-family:'Space Mono', monospace; font-weight:700; font-size:30px; background:var(--yellow); color:var(--ink); padding:4px 14px; letter-spacing:.06em; }
-  .precio { margin-top:14px; color:#ddd; font-size:15px; }
-  h2 { font-family:'Barlow Semi Condensed', sans-serif; font-weight:700; text-transform:uppercase; font-size:22px; margin:0 0 12px; letter-spacing:.02em; }
-  section { padding:28px 0 4px; }
-  .pasos { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
-  .pasos li { background:#fff; border:1px solid var(--line); padding:12px 14px 12px 52px; position:relative; }
-  .pasos li::before { counter-increment:p; content:counter(p); position:absolute; left:14px; top:12px; width:26px; height:26px; background:var(--ink); color:var(--yellow); font-family:Anton; display:grid; place-items:center; }
-  .pasos { counter-reset:p; }
-  .card { background:#fff; border:1px solid var(--line); padding:18px; }
-  label { display:block; font-weight:600; font-size:14px; margin:14px 0 6px; }
-  label .opt { font-weight:400; color:var(--muted); }
-  input[type=text], input[type=tel], input[type=email], select { width:100%; font:inherit; font-size:16px; padding:12px; border:1px solid #bbb; background:#fff; border-radius:0; }
-  input:focus, select:focus { outline:3px solid var(--yellow); outline-offset:0; border-color:var(--ink); }
-  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  @media (max-width:520px) { .row2 { grid-template-columns:1fr; } h1 { font-size:36px; } .num { font-size:24px; } }
-  .qty { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--line); padding:12px; margin-top:10px; }
-  .qty .t { font-weight:600; }
-  .qty small { display:block; color:var(--muted); font-weight:400; }
-  .step { display:flex; align-items:center; }
-  .step button { width:46px; height:46px; font-size:28px; line-height:1; border:2px solid var(--ink); background:#fff; color:var(--ink); cursor:pointer; font-family:Inter, sans-serif; font-weight:600; padding:0; }
-  .step button[data-d="1"] { background:var(--yellow); }
-  .step button:disabled { opacity:.3; cursor:default; }
-  .step output { width:48px; text-align:center; font-family:'Space Mono', monospace; font-size:22px; font-weight:700; }
-  .dias { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:6px; }
-  .dias label { margin:0; font-weight:500; border:1px solid #bbb; padding:10px 8px; cursor:pointer; background:#fff; font-size:15px; display:flex; align-items:center; }
-  @media (max-width:520px) { .dias { grid-template-columns:1fr 1fr; } }
-  .dias input { margin-right:6px; }
-  .dias label:has(input:checked) { background:var(--ink); color:#fff; border-color:var(--ink); }
-  .check { display:flex; gap:10px; font-weight:400; align-items:flex-start; }
-  .check input { margin-top:4px; width:18px; height:18px; flex:none; }
-  .aviso { background:#FFF7C2; border-left:5px solid var(--yellow); padding:12px 14px; font-size:14px; margin-top:14px; }
-  .total { margin-top:16px; font-size:15px; }
-  .total b { font-family:'Space Mono', monospace; font-size:20px; }
-  button.go { margin-top:18px; width:100%; padding:16px; background:var(--yellow); color:var(--ink); border:0; font-family:Anton; font-size:22px; text-transform:uppercase; letter-spacing:.04em; cursor:pointer; }
-  button.go:disabled { opacity:.5; cursor:wait; }
-  .err { color:var(--err); font-weight:600; margin-top:12px; min-height:1px; }
-  .hp { position:absolute; left:-9999px; }
-  .ok-box { text-align:center; }
-  .codigo { font-family:'Space Mono', monospace; font-weight:700; font-size:40px; background:var(--yellow); display:inline-block; padding:4px 18px; margin:8px 0 14px; }
-  .ok-box ul { text-align:left; }
-  .cerrado { font-weight:600; }
-  footer { color:var(--muted); font-size:13px; padding:28px 0 40px; }
-  .stock { font-size:13px; color:var(--muted); }
+  body { margin:0; font-family:Inter, system-ui, sans-serif; color:var(--ink); background:var(--paper); font-size:14px; line-height:1.4; }
+  button, input, select, textarea { font:inherit; }
+  input, select, textarea { font-size:15px; }
+  a { color:var(--blue); }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 24px; }
+  .mono { font-family:'Space Mono', monospace; }
+  .muted { color:var(--muted); }
   [hidden] { display:none !important; }
+
+  /* cabecera */
+  .top { background:var(--ink); color:#fff; border-bottom:5px solid var(--yellow); position:sticky; top:0; z-index:20; }
+  .top .wrap { display:flex; align-items:center; gap:10px; height:58px; }
+  .brand { font-family:Anton; font-size:24px; text-transform:uppercase; margin-right:auto; letter-spacing:.02em; }
+  .brand span { color:var(--yellow); }
+  .tb { background:none; border:1px solid #666; color:#fff; padding:7px 12px; cursor:pointer; }
+  .tb.y { background:var(--yellow); color:var(--ink); border-color:var(--yellow); font-weight:700; }
+  .who { color:#bbb; font-size:13px; margin-right:6px; }
+
+  /* indicadores */
+  .kpis { display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; margin:18px 0 14px; }
+  .kpi { background:#fff; border:1px solid var(--line); padding:12px 14px; }
+  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:600; }
+  .kpi .v { font-family:'Space Mono', monospace; font-size:24px; font-weight:700; margin-top:2px; white-space:nowrap; }
+  .kpi .s { font-size:12px; color:var(--muted); }
+  .kpi.hl { background:var(--ink); color:#fff; border-color:var(--ink); } .kpi.hl .v { color:var(--yellow); } .kpi.hl .l, .kpi.hl .s { color:#bbb; }
+  .kpi.alert { border-color:var(--err); } .kpi.alert .v { color:var(--err); }
+
+  /* pestañas */
+  nav.tabs { display:flex; gap:2px; border-bottom:3px solid var(--ink); }
+  nav.tabs button { border:0; background:#e4e2db; padding:10px 18px; cursor:pointer; font-family:'Barlow Semi Condensed'; font-weight:700; font-size:17px; text-transform:uppercase; }
+  nav.tabs button.on { background:var(--ink); color:var(--yellow); }
+  nav.tabs .n { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; background:var(--yellow); color:var(--ink); font-family:Inter; font-size:12px; border-radius:10px; }
+  nav.tabs .n.red { background:var(--err); color:#fff; }
+  section.tab { padding:18px 0 60px; }
+
+  h2 { font-family:'Barlow Semi Condensed'; font-weight:700; text-transform:uppercase; font-size:20px; margin:0 0 10px; }
+  h3 { font-family:'Barlow Semi Condensed'; font-weight:700; text-transform:uppercase; font-size:17px; margin:20px 0 8px; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .bar input[type=search] { flex:1; min-width:280px; padding:10px 12px; border:1px solid #999; background:#fff; }
+  .bar select { padding:9px 10px; border:1px solid #999; background:#fff; }
+  .bar .sp { flex:1; }
+  .big-search { font-size:17px !important; padding:13px 14px !important; border:2px solid var(--ink) !important; }
+
+  .btn { border:2px solid var(--ink); background:#fff; padding:6px 12px; cursor:pointer; font-weight:600; white-space:nowrap; }
+  .btn.pri { background:var(--yellow); }
+  .btn.dark { background:var(--ink); color:var(--yellow); }
+  .btn.ghost { border-color:#bbb; color:#555; font-weight:500; }
+  .btn.sm { padding:3px 9px; font-size:13px; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .lnk { background:none; border:0; color:var(--blue); text-decoration:underline; cursor:pointer; padding:0; font-size:13px; }
+  .wa { display:inline-block; background:#25D366; color:#fff; text-decoration:none; font-weight:600; font-size:13px; padding:4px 9px; white-space:nowrap; }
+
+  /* tablas */
+  .tbl { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); }
+  .tbl th, .tbl td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .tbl th { background:#ece9e1; font-size:11px; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; cursor:default; }
+  .tbl th[data-k] { cursor:pointer; } .tbl th[data-k]:hover { background:#e2ded3; }
+  .tbl td.n, .tbl th.n { text-align:right; font-family:'Space Mono', monospace; white-space:nowrap; }
+  .tbl tr.done td { color:#888; background:#fafaf8; }
+  .tbl tr:hover td { background:#fffbe0; }
+  .tbl tfoot td { font-weight:700; background:#f3f1ea; }
+  .code { font-family:'Space Mono', monospace; font-weight:700; background:var(--yellow); padding:0 5px; color:var(--ink); }
+  .badge { font-size:11px; font-weight:700; padding:2px 7px; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+  .b-Pendiente { background:var(--warnbg); color:var(--warn); }
+  .b-Parcial, .b-Fuera { background:var(--bluebg); color:var(--blue); }
+  .b-Completa, .b-Liquidado { background:var(--okbg); color:var(--ok); }
+  .b-Anulada, .b-Liberada { background:#eee; color:#777; }
+  .b-Vencido, .b-No-vino { background:var(--errbg); color:var(--err); }
+  .ok { color:var(--ok); font-weight:600; } .pend { color:var(--warn); font-weight:600; } .red { color:var(--err); font-weight:600; }
+
+  /* pantalla Hoy */
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .col h2 { display:flex; justify-content:space-between; align-items:baseline; }
+  .col h2 small { font-family:Inter; font-size:13px; text-transform:none; font-weight:500; color:var(--muted); }
+  .chk { width:26px; height:26px; border:2px solid var(--ink); background:#fff; cursor:pointer; display:inline-grid; place-items:center; font-weight:700; font-size:16px; padding:0; }
+  .chk.on { background:var(--ok); border-color:var(--ok); color:#fff; cursor:default; }
+  .numinp { width:82px; padding:5px 6px; border:1px solid #999; font-family:'Space Mono', monospace; }
+  .tgrid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
+  .tal { background:#fff; border:1px solid var(--line); padding:8px 10px; font-size:12px; }
+  .tal b { font-family:'Space Mono', monospace; font-size:15px; }
+  .tal .bar2 { height:8px; background:#e4e2db; margin:5px 0 3px; display:flex; } .tal .bar2 div { height:100%; }
+  .tal.taco { border-color:var(--blue); } .tal.free { opacity:.75; }
+  .medio { display:flex; gap:8px; } .medio label { flex:1; border:2px solid #bbb; padding:10px; text-align:center; cursor:pointer; font-weight:700; margin:0 !important; }
+  .medio input { display:none; } .medio label:has(input:checked) { border-color:var(--ink); background:var(--yellow); }
+  .grp { display:grid; grid-template-columns:150px 1fr 70px 30px; gap:8px; align-items:center; margin-top:6px; }
+  .grp select, .grp input { padding:7px 8px !important; }
+  .empty { background:#fff; border:1px dashed #bbb; padding:18px; color:var(--muted); text-align:center; }
+
+  /* ficha */
+  .ficha { background:#fff; border:1px solid var(--line); padding:14px 16px; margin-bottom:10px; }
+  .ficha .h { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+  .ficha .nm { font-weight:700; font-size:16px; }
+  .ficha .rows { display:grid; gap:6px; margin-top:10px; }
+  .ficha .rw { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:6px 0; border-top:1px solid #eee; }
+  .ficha .rw .lbl { width:90px; font-weight:600; }
+
+  /* ventas */
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .barrow { display:grid; grid-template-columns:110px 1fr 90px; gap:10px; align-items:center; margin:4px 0; font-size:13px; }
+  .barrow .b { height:18px; background:var(--yellow); border:1px solid #c9ab00; }
+  .progress { height:14px; background:#e4e2db; margin:8px 0 2px; display:flex; }
+  .progress div { height:100%; }
+
+  /* formularios */
+  .form { background:#fff; border:1px solid var(--line); padding:16px; }
+  .form label, dialog label { display:block; font-weight:600; font-size:13px; margin:10px 0 4px; }
+  .form input, .form select, dialog input, dialog select, dialog textarea { width:100%; padding:9px 10px; border:1px solid #999; background:#fff; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .err { color:var(--err); font-weight:600; margin-top:8px; min-height:1px; }
+  dialog { border:0; padding:0; max-width:620px; width:calc(100% - 32px); box-shadow:0 10px 40px rgba(0,0,0,.35); }
+  dialog.wide { max-width:860px; }
+  dialog::backdrop { background:rgba(0,0,0,.45); }
+  dialog .dh { background:var(--ink); color:#fff; padding:12px 18px; font-family:'Barlow Semi Condensed'; font-weight:700; font-size:19px; text-transform:uppercase; display:flex; justify-content:space-between; }
+  dialog .dh button { background:none; border:0; color:#fff; font-size:20px; cursor:pointer; }
+  dialog .db { padding:14px 18px; max-height:70vh; overflow:auto; }
+  dialog .df { padding:0 18px 16px; display:flex; gap:8px; justify-content:flex-end; }
+  .bigv { font-family:'Space Mono', monospace; font-size:28px; font-weight:700; }
+  .note { background:var(--warnbg); padding:10px 12px; margin-top:10px; }
+  #login { max-width:400px; margin:80px auto; }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 18px; border-left:6px solid var(--yellow); z-index:60; font-weight:600; }
+  @media (max-width:1100px) { .kpis { grid-template-columns:repeat(3, 1fr); } .cols, .grid2 { grid-template-columns:1fr; } }
 </style>
-<script src="config.js"></script>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <div class="brandrow"><span class="escudo"><img src="https://torrelodonesrugby.com/wp-content/uploads/2023/04/TRC.png" alt="Escudo del Torrelodones Rugby Club" onerror="this.parentNode.remove()"></span><div class="club">Torrelodones Rugby Club</div></div>
-    <h1>Lotería de Navidad 2026</h1>
-    <img class="part" id="partImg" src="participacion.jpg" width="1600" height="720" alt="Participación de Lotería de Navidad del Torrelodones Rugby Club" onerror="this.remove();document.getElementById('nums').hidden=false">
-    <div class="nums" id="nums" hidden></div>
-    <div class="precio" id="precio">Cargando…</div>
-    <a class="cta" href="#formSec">Reservar ahora</a>
+
+<div id="login" class="wrap">
+  <div class="form">
+    <div class="brand" style="color:var(--ink)">Lotería <span style="background:var(--yellow);padding:0 4px">TRC</span> · Gestión</div>
+    <label for="lgNombre">¿Quién eres?</label>
+    <select id="lgNombre"><option>Fernando</option><option>Jesús</option><option value="">Otra persona…</option></select>
+    <input id="lgOtro" placeholder="Tu nombre" hidden style="margin-top:6px">
+    <label for="lgPin">PIN</label>
+    <input id="lgPin" type="password" inputmode="numeric" autocomplete="current-password">
+    <button class="btn pri" id="lgGo" style="margin-top:14px;width:100%;padding:10px">Entrar</button>
+    <div class="err" id="lgErr"></div>
   </div>
-</header>
+</div>
 
-<main class="wrap">
-  <section>
-    <h2>Cómo funciona</h2>
-    <ol class="pasos">
-      <li><b>Reserva aquí</b> y elige el <span class="t-horario">martes o jueves</span> en que vas a recoger. Sin reserva no hay lotería.</li>
-      <li><b>Paga</b> las participaciones sueltas al recogerlas en <span class="t-lugar">el club</span>. Mejor en efectivo, aunque también hay datáfono.</li>
-      <li><b>Si te llevas un taco para vender</b>, tienes hasta el <span class="t-limite">plazo</span> para traer el dinero de lo vendido y devolver lo que sobre.</li>
-    </ol>
-  </section>
+<div id="app" hidden>
+  <div class="top"><div class="wrap">
+    <div class="brand">Lotería <span>TRC</span> · Gestión</div>
+    <span class="who" id="who"></span>
+    <button class="tb y" data-act="nueva">+ Nueva reserva</button>
+    <button class="tb" data-act="excel">Excel de cuentas</button>
+    <button class="tb" data-act="reload">Actualizar</button>
+    <button class="tb" data-act="salir">Salir</button>
+  </div></div>
 
-  <section id="formSec">
-    <h2>Tu reserva</h2>
-    <div class="card">
-      <p class="cerrado" id="cerrado" hidden>La reserva está cerrada en este momento.</p>
-      <form id="f" novalidate>
-        <div class="row2">
-          <div><label for="nombre">Nombre</label><input id="nombre" type="text" autocomplete="given-name" required maxlength="60"></div>
-          <div><label for="apellidos">Apellidos</label><input id="apellidos" type="text" autocomplete="family-name" required maxlength="80"></div>
+  <div class="wrap">
+    <div class="kpis" id="kpis"></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="hoy" class="on">Hoy</button>
+      <button data-tab="compradores">Compradores</button>
+      <button data-tab="tacos">Tacos <span class="n" id="badgeTacos"></span></button>
+      <button data-tab="novinieron">No vinieron <span class="n red" id="nNoVin"></span></button>
+      <button data-tab="ventas">Ventas</button>
+      <button data-tab="caja">Caja</button>
+      <button data-tab="registro">Registro</button>
+    </nav>
+
+    <!-- HOY -->
+    <section class="tab" id="t-hoy">
+      <div class="bar">
+        <input type="search" id="hQ" class="big-search" placeholder="Buscar a cualquiera: apellido, teléfono, código (L-012) o número de participación">
+      </div>
+      <div id="hResultados" hidden></div>
+      <div id="hListas">
+        <p class="muted" id="hFecha" style="margin:0 0 12px"></p>
+        <div class="cols">
+          <div class="col"><h2>Participaciones sueltas <small id="hSCount"></small></h2><div id="hSueltas"></div></div>
+          <div class="col"><h2>Tacos <small id="hTCount"></small></h2><div id="hTacos"></div></div>
         </div>
-        <div class="row2">
-          <div><label for="telefono">Teléfono móvil</label><input id="telefono" type="tel" inputmode="tel" autocomplete="tel" required></div>
-          <div><label for="email">Email <span class="opt">(opcional, para la confirmación)</span></label><input id="email" type="email" autocomplete="email"></div>
+      </div>
+    </section>
+
+    <!-- COMPRADORES -->
+    <section class="tab" id="t-compradores" hidden>
+      <div class="bar">
+        <input type="search" id="cQ" placeholder="Buscar nombre, teléfono, código o número de participación">
+        <select id="cF">
+          <option value="act">Todas las activas</option>
+          <option value="pend">Pendientes de recoger</option>
+          <option value="fuera">Con tacos sin liquidar</option>
+          <option value="comp">Completas</option>
+          <option value="novino">No vinieron</option>
+          <option value="inact">Anuladas y liberadas</option>
+          <option value="all">Todas</option>
+        </select>
+        <span class="sp"></span><span class="muted" id="cCount"></span>
+      </div>
+      <table class="tbl" id="cTbl"></table>
+    </section>
+
+    <!-- TACOS -->
+    <section class="tab" id="t-tacos" hidden>
+      <div class="bar">
+        <input type="search" id="tQ" placeholder="Buscar titular, teléfono, ID o número de participación">
+        <select id="tF">
+          <option value="fuera">Sin liquidar</option>
+          <option value="venc">Fuera de plazo</option>
+          <option value="liq">Liquidados</option>
+          <option value="all">Todos</option>
+        </select>
+        <span class="sp"></span>
+        <button class="btn" data-act="copiarTel">Copiar teléfonos sin liquidar</button>
+        <button class="btn" data-act="copiarMsg">Copiar mensaje de aviso</button>
+      </div>
+      <p id="tInfo" style="margin:0 0 10px"></p>
+      <table class="tbl" id="tTbl"></table>
+    </section>
+
+    <!-- NO VINIERON -->
+    <section class="tab" id="t-novinieron" hidden>
+      <p id="nInfo" style="margin:0 0 10px"></p>
+      <table class="tbl" id="nTbl"></table>
+    </section>
+
+    <!-- VENTAS -->
+    <section class="tab" id="t-ventas" hidden>
+      <div class="grid2">
+        <div>
+          <h2>Participaciones</h2>
+          <div class="progress" id="vProg"></div>
+          <p class="muted" style="margin:0 0 10px;font-size:12px" id="vProgTxt"></p>
+          <table class="tbl" id="vPart"></table>
+          <h3>Mapa de talonarios</h3>
+          <div class="tgrid" id="vTal"></div>
+          <p class="muted" style="font-size:12px">Verde: vendidas · Azul: en un taco sin liquidar · Gris: libres.</p>
         </div>
-
-        <label>¿Qué quieres?</label>
-        <div class="qty">
-          <div class="t">Participaciones sueltas<small id="sueltasInfo"></small></div>
-          <div class="step"><button type="button" data-q="sueltas" data-d="-1" aria-label="Menos">−</button><output id="sueltas">0</output><button type="button" data-q="sueltas" data-d="1" aria-label="Más">+</button></div>
+        <div>
+          <h2>Dinero</h2>
+          <table class="tbl" id="vDinero"></table>
+          <h3>Cobrado por día</h3>
+          <div id="vDias"></div>
+          <h3>Cobrado por medio de pago</h3>
+          <table class="tbl" id="vMedio"></table>
         </div>
-        <div class="qty">
-          <div class="t">Tacos para vender<small id="tacosInfo"></small></div>
-          <div class="step"><button type="button" data-q="tacos" data-d="-1" aria-label="Menos">−</button><output id="tacos">0</output><button type="button" data-q="tacos" data-d="1" aria-label="Más">+</button></div>
+      </div>
+    </section>
+
+    <!-- CAJA -->
+    <section class="tab" id="t-caja" hidden>
+      <div class="grid2">
+        <div>
+          <h2>Pendiente de cerrar</h2>
+          <p class="muted" id="kDesde" style="margin:0 0 8px"></p>
+          <table class="tbl" id="kMovs"></table>
         </div>
+        <div>
+          <h2>Cerrar caja</h2>
+          <div class="form">
+            <p class="muted" style="margin:0">Contad el efectivo entre dos personas (lo cobrado por TPV no cuenta aquí). Si hay diferencia, explicadla en las notas.</p>
+            <div class="row2">
+              <div><label>Efectivo esperado según la hoja</label><input id="kEsperado" disabled></div>
+              <div><label>Contado en la caja (€)</label><input id="kContado" inputmode="decimal"></div>
+            </div>
+            <label>Quién cuenta (dos nombres)</label><input id="kFirmas" placeholder="Fernando y Jesús">
+            <label>Notas</label><input id="kNotas">
+            <button class="btn dark" data-act="cierre" style="margin-top:12px">Registrar cierre</button>
+            <div class="err" id="kErr"></div>
+          </div>
+          <h3>Cierres anteriores</h3>
+          <table class="tbl" id="kHist"></table>
+        </div>
+      </div>
+    </section>
 
-        <label>Día de recogida <span class="opt t-horario2"></span></label>
-        <div class="dias" id="dias"></div>
+    <!-- REGISTRO -->
+    <section class="tab" id="t-registro" hidden>
+      <div class="bar"><input type="search" id="rQ" placeholder="Filtrar por persona, acción, código o texto"></div>
+      <table class="tbl" id="rTbl"></table>
+    </section>
+  </div>
+</div>
 
-        <div class="aviso" id="avisoTacos" hidden></div>
-
-        <div class="total" id="total"></div>
-
-        <label class="check"><input type="checkbox" id="acepta"> <span>Acepto las condiciones de arriba y que el club guarde mis datos solo para gestionar esta reserva. Puedo pedir que se borren escribiendo a <span class="t-contacto"></span>.</span></label>
-        <input class="hp" type="text" id="web" tabindex="-1" autocomplete="off" aria-hidden="true">
-
-        <button class="go" id="go" type="submit">Reservar</button>
-        <div class="err" id="err" role="alert"></div>
-      </form>
-    </div>
-  </section>
-
-  <section id="okSec" hidden>
-    <div class="card ok-box">
-      <h2>Reserva hecha</h2>
-      <div>Tu código</div>
-      <div class="codigo" id="okCodigo"></div>
-      <ul id="okLista"></ul>
-      <p>Haz una captura de esta pantalla. Si dejaste tu email, te llegará la confirmación.</p>
-      <button class="go" type="button" onclick="location.reload()">Hacer otra reserva</button>
-    </div>
-  </section>
-</main>
-
-<footer class="wrap">
-  Torrelodones Rugby Club · Dudas: <span class="t-contacto"></span>
-</footer>
+<dialog id="dlg"><div class="dh"><span id="dlgH"></span><button data-act="cerrarDlg" aria-label="Cerrar">×</button></div><div class="db" id="dlgB"></div><div class="df" id="dlgF"></div></dialog>
 
 <script>
 const API = window.LOTERIA_API;
-let C = null;
-const q = { sueltas: 0, tacos: 0 };
 const $ = id => document.getElementById(id);
-const eur = n => (Math.round(n * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: n % 1 ? 2 : 0 }) + ' €';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = n => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const eur0 = n => (Math.round(Number(n) || 0)).toLocaleString('es-ES') + ' €';
+const int = n => (Number(n) || 0).toLocaleString('es-ES');
+const pl = (k, a, b) => k + ' ' + (k === 1 ? a : b);
+const fecha = ymd => { if (!ymd) return ''; const p = String(ymd).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : ymd; };
+const fechaL = ymd => { if (!ymd) return ''; const p = String(ymd).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ymd; };
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const dias = (a, b) => Math.round((Date.parse(a + 'T12:00:00Z') - Date.parse(b + 'T12:00:00Z')) / 864e5);
+const addD = (ymd, n) => { const d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const DSEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const diaCorto = ymd => ymd ? DSEM[new Date(ymd + 'T12:00:00Z').getUTCDay()] + ' ' + fecha(ymd) : '';
+
+let S = { token: null, nombre: null };
+let D = null, tab = 'hoy';
+const sortState = {};
+try { const s = JSON.parse(sessionStorage.getItem('lot_s') || 'null'); if (s) S = s; } catch (e) {}
+const saveS = () => { try { sessionStorage.setItem('lot_s', JSON.stringify(S)); } catch (e) {} };
 
 async function api(body) {
-  const r = await fetch(API, { method: 'POST', body: JSON.stringify(body) });
-  return r.json();
+  const r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ token: S.token }, body)) });
+  const j = await r.json();
+  if (!j.ok && j.auth) { logout(); throw new Error(j.error); }
+  if (!j.ok) throw new Error(j.error || 'Error');
+  return j.data;
+}
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(x => x.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
+}
+async function copiar(txt) {
+  try { await navigator.clipboard.writeText(txt); }
+  catch (e) { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
 }
 
-// "Martes 3 de noviembre" -> "Mar 3 nov"
-function corto(e) { const p = e.split(' '); return p[0].slice(0, 3) + ' ' + p[1] + ' ' + (p[3] || '').slice(0, 3); }
-
-function setText(cls, txt) { document.querySelectorAll('.' + cls).forEach(e => e.textContent = txt); }
-
-function maxQ(k) {
-  if (k === 'sueltas') return Math.min(C.topeSueltas || 999, C.sueltasLibres);
-  return Math.min(C.topeTacos, C.tacosLibres);
-}
-
-function render() {
-  ['sueltas', 'tacos'].forEach(k => {
-    $(k).textContent = q[k];
-    document.querySelector(`[data-q=${k}][data-d="-1"]`).disabled = q[k] <= 0;
-    document.querySelector(`[data-q=${k}][data-d="1"]`).disabled = q[k] >= maxQ(k);
-  });
-  const avisoT = $('avisoTacos');
-  if (q.tacos > 0) {
-    avisoT.hidden = false;
-    avisoT.innerHTML = `<b>Condiciones del taco.</b> Cada taco trae ${C.porTaco} participaciones (${eur(C.importeTaco)} si se venden todas). ` +
-      `Al recogerlo anotamos sus números. Tienes hasta el <b>${C.limiteLiqEtiqueta.toLowerCase()}</b> para traer el dinero de lo vendido y devolver las que no hayas vendido. ` +
-      `<b>Las que no se devuelvan en plazo se consideran vendidas y se pagan.</b>`;
-  } else avisoT.hidden = true;
-  // Los tacos no se pueden recoger el día del plazo de liquidación ni después.
-  document.querySelectorAll('input[name=dia]').forEach(i => {
-    const off = q.tacos > 0 && C.limiteLiq && i.value >= C.limiteLiq;
-    i.disabled = off; if (off && i.checked) i.checked = false;
-    i.parentNode.style.opacity = off ? .35 : 1;
-  });
-  let t = '';
-  if (q.sueltas) t += `Al recoger pagas <b>${eur(q.sueltas * C.precio)}</b> por las sueltas, mejor en efectivo (también hay datáfono).`;
-  if (q.tacos) t += (t ? '<br>' : '') + `Los tacos se pagan al liquidarlos, solo lo vendido.`;
-  $('total').innerHTML = t;
-}
-
-document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => {
-  const k = b.dataset.q, d = Number(b.dataset.d);
-  q[k] = Math.max(0, Math.min(maxQ(k), q[k] + d));
-  render();
-}));
-
-async function init() {
+/* ===== acceso ===== */
+$('lgNombre').addEventListener('change', () => { $('lgOtro').hidden = $('lgNombre').value !== ''; });
+$('lgPin').addEventListener('keydown', e => { if (e.key === 'Enter') $('lgGo').click(); });
+$('lgGo').addEventListener('click', async () => {
+  $('lgErr').textContent = '';
   try {
-    const r = await api({ action: 'config' });
-    if (!r.ok) throw new Error(r.error);
-    C = r.data;
-  } catch (e) {
-    $('precio').textContent = 'No se ha podido cargar la información. Recarga la página en un momento.';
-    $('f').hidden = true;
+    const d = await api({ action: 'login', nombre: $('lgNombre').value || $('lgOtro').value.trim(), pin: $('lgPin').value });
+    S = { token: d.token, nombre: d.nombre }; saveS(); $('lgPin').value = ''; start();
+  } catch (e) { $('lgErr').textContent = e.message; }
+});
+function logout() { S = { token: null, nombre: null }; saveS(); $('app').hidden = true; $('login').hidden = false; }
+async function start() { $('login').hidden = true; $('app').hidden = false; $('who').textContent = S.nombre; await load(); }
+async function load() {
+  try { D = await api({ action: 'datos' }); } catch (e) { toast(e.message); return; }
+  prep(); renderAll();
+}
+
+/* ===== datos derivados ===== */
+const n = () => D.config.porTaco, P = () => D.config.precio;
+let TAC = {};
+const inactiva = r => r['Estado'] === 'Anulada' || r['Estado'] === 'Liberada';
+const sPend = r => Number(r['Sueltas']) > 0 && r['Sueltas entregadas'] === '';
+const tEnt = r => (TAC[r['Código']] || []).length;
+const tPend = r => Math.max(0, (Number(r['Tacos']) || 0) - tEnt(r));
+const pendiente = r => !inactiva(r) && (sPend(r) || tPend(r) > 0);
+const noVino = r => pendiente(r) && r['Día recogida'] && r['Día recogida'] < D.hoy;
+const tacoVencido = t => t['Estado'] === 'En depósito' && String(t['Fecha límite']) < D.hoy;
+function prep() {
+  TAC = {};
+  D.tacos.forEach(t => { (TAC[t['Código reserva']] = TAC[t['Código reserva']] || []).push(t); });
+  calcUso();
+}
+
+/* ===== talonarios y números (misma lógica que el servidor) ===== */
+const NT = () => D.config.numTalonarios;
+const rangoT = t => D.config.continua ? [(t - 1) * n() + 1, t * n()] : [1, n()];
+function parseNums(txt) {
+  const out = [];
+  String(txt || '').replace(/;/g, ',').split(/[,\s]+/).filter(Boolean).forEach(tok => {
+    const m = tok.match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) throw new Error('No entiendo «' + tok + '». Escribe números separados por comas o rangos como 1-3.');
+    const a = +m[1], b = m[2] ? +m[2] : a;
+    if (b < a || b - a > 1000) throw new Error('Rango no válido: ' + tok);
+    for (let i = a; i <= b; i++) out.push(i);
+  });
+  return out;
+}
+function fmtNums(arr) {
+  const a = arr.slice().sort((x, y) => x - y), out = [];
+  for (let i = 0; i < a.length; i++) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? a[i] + '-' + a[j] : String(a[i])); i = j; }
+  return out.join(', ');
+}
+function parseGrupos(txt) {
+  return String(txt || '').split(';').map(x => x.trim()).filter(Boolean).map(g => {
+    const m = g.match(/^T(\d+)\s*:\s*(.+)$/i); if (!m) return null;
+    try { return { t: +m[1], nums: parseNums(m[2]) }; } catch (e) { return null; }
+  }).filter(Boolean);
+}
+let USO = { set: {}, taco: {} };
+function calcUso() {
+  const set = {}, taco = {};
+  D.reservas.forEach(r => parseGrupos(r['Participaciones']).forEach(g => g.nums.forEach(x => { set[g.t + ':' + x] = r['Código']; })));
+  D.tacos.forEach(t => {
+    const tn = +t['Talonario']; if (!tn) return;
+    taco[tn] = t;
+    const dev = t['Estado'] === 'Liquidado' ? (() => { try { return parseNums(t['Nº devueltos']); } catch (e) { return []; } })() : [];
+    const rg = rangoT(tn);
+    for (let x = rg[0]; x <= rg[1]; x++) if (!dev.includes(x) && !set[tn + ':' + x]) set[tn + ':' + x] = t['ID'];
+  });
+  USO = { set, taco };
+}
+const usadosT = t => { const rg = rangoT(t); let k = 0; for (let x = rg[0]; x <= rg[1]; x++) if (USO.set[t + ':' + x]) k++; return k; };
+const tacoFuera = t => USO.taco[t] && USO.taco[t]['Estado'] === 'En depósito';
+// Talonarios completos y libres para dar como taco (del 1 hacia arriba).
+function talonariosLibres() { const out = []; for (let t = 1; t <= NT(); t++) if (!USO.taco[t] && usadosT(t) === 0) out.push(t); return out; }
+// Propuesta de participaciones sueltas: primero talonarios empezados, luego del último hacia atrás.
+function proponerSueltas(k) {
+  const ts = [];
+  for (let t = NT(); t >= 1; t--) if (!tacoFuera(t)) ts.push(t);
+  ts.sort((a, b) => (usadosT(b) > 0 && usadosT(b) < n()) - (usadosT(a) > 0 && usadosT(a) < n()));
+  const out = [];
+  for (const t of ts) {
+    if (k <= 0) break;
+    const rg = rangoT(t), nums = [];
+    for (let x = rg[0]; x <= rg[1] && k > 0; x++) if (!USO.set[t + ':' + x]) { nums.push(x); k--; }
+    if (nums.length) out.push({ t, nums });
+  }
+  return out;
+}
+const txtTaco = t => `T${t['Talonario']} · ${t['Desde']}–${t['Hasta']}`;
+function pagado(r) {
+  return (Number(r['Importe sueltas']) || 0) + (TAC[r['Código']] || []).reduce((a, t) => a + (Number(t['Importe liquidado']) || 0), 0);
+}
+function porCobrar(r) {
+  if (inactiva(r)) return 0;
+  let x = sPend(r) ? Number(r['Sueltas']) * P() : 0;
+  (TAC[r['Código']] || []).forEach(t => { if (t['Estado'] === 'En depósito') x += Number(t['Participaciones']) * P(); });
+  return x + tPend(r) * n() * P();
+}
+function matchQ(r, q) {
+  if (!q) return true;
+  if (/^\d{1,5}$/.test(q)) {
+    const num = +q;
+    if ((TAC[r['Código']] || []).some(t => num >= +t['Desde'] && num <= +t['Hasta'])) return true;
+    if (parseGrupos(r['Participaciones']).some(g => g.nums.includes(num))) return true;
+  }
+  const tq = q.match(/^t\s?(\d{1,2})$/);
+  if (tq && ((TAC[r['Código']] || []).some(t => +t['Talonario'] === +tq[1]) || parseGrupos(r['Participaciones']).some(g => g.t === +tq[1]))) return true;
+  return norm([r['Código'], r['Nombre'], r['Apellidos'], r['Teléfono'], r['Email']].join(' ')).includes(q);
+}
+function waLink(tel, msg) { return 'https://wa.me/34' + String(tel).replace(/\D/g, '').slice(-9) + '?text=' + encodeURIComponent(msg); }
+function msgTaco(t) {
+  return `Hola, ${String(t['Titular']).split(' ')[0]}. Te recordamos desde el Torrelodones Rugby Club que el ${D.config.limiteLiqEtiqueta.toLowerCase()} es el último día para liquidar tu taco de lotería (talonario ${t['Talonario']}, participaciones ${t['Desde']} a ${t['Hasta']}): trae el dinero de lo vendido y devuelve las que no hayas vendido. Martes y jueves de 18:00 a 20:00 en la oficina del club. ¡Gracias!`;
+}
+function msgNoVino(r) {
+  const lib = D.config.diasLiberar > 0 ? ` Si no pasas antes del ${fechaL(addD(r['Día recogida'], D.config.diasLiberar))}, la reserva se liberará.` : '';
+  return `Hola, ${r['Nombre']}. Tienes lotería de Navidad del Torrelodones Rugby Club reservada (código ${r['Código']}) para recoger el ${fechaL(r['Día recogida'])} y no nos consta que hayas pasado. Puedes recogerla martes o jueves de 18:00 a 20:00 en la oficina del club.${lib} ¡Gracias!`;
+}
+
+/* ===== indicadores ===== */
+function renderKpis() {
+  const r = D.resumen, nn = n(), p = P();
+  const act = D.reservas.filter(x => !inactiva(x));
+  const sinRecoger = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0) + tPend(x) * nn, 0);
+  const libres = r.sueltasLibres + r.tacosLibres * nn;
+  const plazo = dias(D.config.limiteLiq, D.hoy);
+  const sumM = (arr, m) => arr.filter(x => (x['Medio'] || 'Efectivo') === m).reduce((a, x) => a + (Number(x['Importe']) || 0), 0);
+  const k = (l, v, s, cls) => `<div class="kpi ${cls || ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || ''}</div></div>`;
+  $('kpis').innerHTML =
+    k('Cobrado', eur0(r.totalCaja), `${eur0(sumM(D.caja, 'Efectivo'))} efectivo · ${eur0(sumM(D.caja, 'TPV'))} TPV`, 'hl') +
+    k('Quedan por vender', int(libres), `participaciones · ${eur0(libres * p)}`) +
+    k('Reservado sin recoger', eur0(sinRecoger * p), `${int(sinRecoger)} participaciones`) +
+    k('En tacos sin liquidar', eur0(r.importeEnDeposito), pl(r.tacosEnDeposito, 'taco fuera', 'tacos fuera')) +
+    k('Efectivo sin cerrar', eur0(D.pendiente.total), `+ ${eur0(D.pendiente.tpv || 0)} por TPV`, D.pendiente.total ? 'alert' : '') +
+    k('Plazo de los tacos', plazo >= 0 ? plazo + ' días' : 'Vencido', D.config.limiteLiqEtiqueta, plazo <= 5 && r.tacosEnDeposito ? 'alert' : '');
+  $('badgeTacos').textContent = r.tacosEnDeposito || ''; $('badgeTacos').hidden = !r.tacosEnDeposito;
+  const nv = D.reservas.filter(noVino).length;
+  $('nNoVin').textContent = nv; $('nNoVin').hidden = !nv;
+}
+
+/* ===== pestañas ===== */
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  tab = b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('section.tab').forEach(s => s.hidden = s.id !== 't-' + tab);
+});
+function renderAll() { document.querySelector('.top .brand').innerHTML = 'Lotería <span>TRC</span> · ' + esc(D.config.numeros.join(' · ')); renderKpis(); renderHoy(); renderCompradores(); renderTacos(); renderNoVin(); renderVentas(); renderCaja(); renderRegistro(); }
+
+/* ===== HOY ===== */
+function renderHoy() {
+  $('hFecha').innerHTML = `<b>${esc(D.hoyEtiqueta)}</b> · quienes eligieron recoger hoy. Para cualquier otra persona, usa el buscador.`;
+  const q = norm($('hQ').value.trim());
+  $('hResultados').hidden = !q; $('hListas').hidden = !!q;
+  if (q) {
+    const list = D.reservas.filter(r => matchQ(r, q)).sort((a, b) => inactiva(a) - inactiva(b));
+    $('hResultados').innerHTML = list.length ? list.slice(0, 30).map(ficha).join('') : '<div class="empty">Nadie coincide con la búsqueda. ¿Crear una reserva nueva? Pulsa «+ Nueva reserva» arriba.</div>';
     return;
   }
-  $('nums').innerHTML = C.numeros.map(n => `<span class="num">${n}</span>`).join('');
-  if ($('partImg')) $('partImg').alt = `Participación del número ${C.numeros.join(' y ')} · Sorteo de Navidad · ${C.precio} € (juega ${C.jugado} €, donativo ${C.donativo} €)`;
-  document.title = `Lotería de Navidad ${C.numeros.join(' · ')} · Torrelodones Rugby Club`;
-  $('precio').textContent = `Participación: ${eur(C.precio)} (juega ${eur(C.jugado)}, donativo ${eur(C.donativo)} para el club)`;
-  setText('t-horario', 'martes o jueves ' + C.horario);
-  setText('t-horario2', '(' + C.horario + ', ' + C.lugar + ')');
-  setText('t-lugar', C.lugar);
-  setText('t-limite', C.limiteLiqEtiqueta.toLowerCase());
-  setText('t-contacto', C.contacto);
-  $('sueltasInfo').textContent = C.sueltasLibres > 0
-    ? `${eur(C.precio)} cada una · máximo ${C.topeSueltas} por familia`
-    : 'Agotadas';
-  $('tacosInfo').textContent = C.tacosLibres > 0
-    ? `${C.porTaco} participaciones · máximo ${C.topeTacos} por familia` +
-      (C.topeTacos < C.topeTacosDespues ? ` hasta el ${C.fechaFinTopeEtiqueta.toLowerCase()}` : '') +
-      ` · quedan ${C.tacosLibres}`
-    : 'Agotados';
-  $('dias').innerHTML = C.dias.map((d, i) =>
-    `<label title="${d.etiqueta}"><input type="radio" name="dia" value="${d.fecha}">${corto(d.etiqueta)}</label>`).join('') ||
-    '<p>No quedan días de recogida.</p>';
-  if (!C.abierta || !C.dias.length || (C.sueltasLibres + C.tacosLibres) === 0) {
-    $('cerrado').hidden = false;
-    if (C.abierta && (C.sueltasLibres + C.tacosLibres) === 0) $('cerrado').textContent = 'Se ha agotado la lotería. ¡Gracias!';
-    $('f').hidden = true;
-  }
-  render();
+  const hoy = D.hoy;
+  // Sueltas
+  const sl = D.reservas.filter(r => !inactiva(r) && Number(r['Sueltas']) > 0 &&
+    (r['Día recogida'] === hoy || r['Fecha entrega sueltas'] === hoy));
+  sl.sort((a, b) => (a['Sueltas entregadas'] !== '') - (b['Sueltas entregadas'] !== '') || String(a['Apellidos']).localeCompare(b['Apellidos'], 'es'));
+  const sDone = sl.filter(r => r['Sueltas entregadas'] !== '');
+  $('hSCount').textContent = `${sDone.length} de ${sl.length} recogidas · ${eur(sDone.reduce((a, r) => a + Number(r['Importe sueltas'] || 0), 0))}`;
+  $('hSueltas').innerHTML = sl.length ? `<table class="tbl"><tr><th style="width:44px"></th><th>Persona</th><th>Teléfono</th><th class="n">Part.</th><th class="n">Importe</th><th></th></tr>` +
+    sl.map(r => {
+      const done = r['Sueltas entregadas'] !== '';
+      return `<tr class="${done ? 'done' : ''}">
+        <td>${done ? '<span class="chk on">✓</span>' : `<button class="chk" title="Marcar como recogido" data-act="suel" data-c="${esc(r['Código'])}"></button>`}</td>
+        <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span>${r['Día recogida'] !== hoy ? ` <span class="badge b-Parcial">otro día</span>` : ''}${done ? `<div class="mono" style="font-size:12px">${esc(r['Participaciones'])} · ${esc(r['Medio de pago'])}</div>` : ''}${r['Notas'] ? `<div class="muted" style="font-size:12px">📝 ${esc(r['Notas'])}</div>` : ''}</td>
+        <td class="mono">${esc(r['Teléfono'])}</td>
+        <td class="n">${done ? r['Sueltas entregadas'] : r['Sueltas']}</td>
+        <td class="n">${eur((done ? r['Sueltas entregadas'] : r['Sueltas']) * P())}</td>
+        <td>${done ? `<span class="muted" style="font-size:12px">${esc(r['Hora entrega sueltas'])} · ${esc(r['Atendido por'])}</span> <button class="lnk" data-act="dsuel" data-c="${esc(r['Código'])}">deshacer</button>` : ''}</td></tr>`;
+    }).join('') + '</table>' : '<div class="empty">Nadie ha elegido recoger sueltas hoy.</div>';
+
+  // Tacos
+  const libres = talonariosLibres(); let li = 0;
+  const rows = [];
+  D.reservas.filter(r => !inactiva(r)).forEach(r => {
+    (TAC[r['Código']] || []).filter(t => t['Fecha entrega'] === hoy).forEach(t => rows.push({ r, t }));
+    if (r['Día recogida'] === hoy) for (let i = 0; i < tPend(r); i++) rows.push({ r, tal: libres[li++] });
+  });
+  rows.sort((a, b) => (!!a.t - !!b.t) || String(a.r['Apellidos']).localeCompare(b.r['Apellidos'], 'es'));
+  const tDone = rows.filter(x => x.t).length;
+  $('hTCount').textContent = `${tDone} de ${rows.length} entregados`;
+  $('hTacos').innerHTML = rows.length ? `<table class="tbl"><tr><th style="width:44px"></th><th>Persona</th><th>Teléfono</th><th>Talonario</th><th></th></tr>` +
+    rows.map((x, i) => {
+      const r = x.r, t = x.t;
+      if (t) return `<tr class="done"><td><span class="chk on">✓</span></td><td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(t['ID'])}</span></td>
+        <td class="mono">${esc(r['Teléfono'])}</td><td class="mono">${txtTaco(t)}</td>
+        <td><span class="muted" style="font-size:12px">${esc(t['Hora entrega'])} · ${esc(t['Entregado por'])}</span> ${t['Estado'] === 'En depósito' ? `<button class="lnk" data-act="dtaco" data-id="${esc(t['ID'])}">deshacer</button>` : ''}</td></tr>`;
+      return `<tr><td><button class="chk" title="Marcar como entregado" data-act="taco" data-c="${esc(r['Código'])}" data-inp="hin${i}"></button></td>
+        <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span></td>
+        <td class="mono">${esc(r['Teléfono'])}</td>
+        <td>${selTal('hin' + i, x.tal)}</td><td></td></tr>`;
+    }).join('') + '</table><p class="muted" style="font-size:12px">Se propone el siguiente talonario completo. Si das otro, cámbialo en el desplegable antes de marcar.</p>' : '<div class="empty">Nadie ha elegido recoger tacos hoy.</div>';
+}
+$('hQ').addEventListener('input', renderHoy);
+function selTal(id, def) {
+  const ls = talonariosLibres();
+  if (!ls.length) return '<span class="red">No quedan talonarios completos</span>';
+  return `<select class="numinp" id="${id}" style="width:auto">` + ls.map(t => `<option value="${t}" ${t === def ? 'selected' : ''}>Talonario ${t} (${rangoT(t)[0]}–${rangoT(t)[1]})</option>`).join('') + '</select>';
 }
 
-$('f').addEventListener('submit', async ev => {
-  ev.preventDefault();
-  $('err').textContent = '';
-  const dia = (document.querySelector('input[name=dia]:checked') || {}).value;
-  const body = {
-    action: 'reservar',
-    nombre: $('nombre').value, apellidos: $('apellidos').value,
-    telefono: $('telefono').value, email: $('email').value,
-    sueltas: q.sueltas, tacos: q.tacos, dia: dia,
-    acepta: $('acepta').checked, web: $('web').value
+/* Ficha completa de una reserva (buscador y Compradores) */
+function ficha(r) {
+  const tk = TAC[r['Código']] || [], inact = inactiva(r);
+  let rows = '';
+  if (Number(r['Sueltas']) > 0 || r['Sueltas entregadas'] !== '') {
+    rows += `<div class="rw"><span class="lbl">Sueltas</span>` + (r['Sueltas entregadas'] !== ''
+      ? `<span class="ok">✓ ${r['Sueltas entregadas']} recogidas · ${eur(r['Importe sueltas'])} · ${esc(r['Medio de pago'])}</span> <span class="mono">${esc(r['Participaciones'])}</span> <span class="muted">${fechaL(r['Fecha entrega sueltas'])} ${esc(r['Hora entrega sueltas'])} · ${esc(r['Atendido por'])}</span>` +
+        (r['Fecha entrega sueltas'] === D.hoy ? ` <button class="lnk" data-act="dsuel" data-c="${esc(r['Código'])}">deshacer</button>` : '')
+      : `<span class="pend">${r['Sueltas']} por recoger</span> ${inact ? '' : `<button class="btn pri sm" data-act="suel" data-c="${esc(r['Código'])}">Cobrar ${eur(r['Sueltas'] * P())} y entregar</button>`}`) + '</div>';
+  }
+  tk.forEach(t => {
+    const v = tacoVencido(t);
+    rows += `<div class="rw"><span class="lbl">Taco ${esc(t['ID'])}</span><span class="mono">${txtTaco(t)}</span> <span class="muted">entregado ${fechaL(t['Fecha entrega'])} · ${esc(t['Entregado por'])}</span> ` +
+      (t['Estado'] === 'Liquidado'
+        ? `<span class="ok">✓ Liquidado: ${t['Vendidas']} vendidas (${eur(t['Importe liquidado'])}${t['Medio de pago'] ? ', ' + esc(t['Medio de pago']) : ''}), ${t['Devueltas']} devueltas${t['Nº devueltos'] ? ' (' + esc(t['Nº devueltos']) + ')' : ''}</span>` + (t['Fecha liquidación'] === D.hoy ? ` <button class="lnk" data-act="dliq" data-id="${esc(t['ID'])}">deshacer</button>` : '')
+        : `<span class="badge ${v ? 'b-Vencido' : 'b-Fuera'}">${v ? 'Fuera de plazo' : 'Sin liquidar'}</span> <button class="btn pri sm" data-act="liq" data-id="${esc(t['ID'])}">Liquidar</button>` + (t['Fecha entrega'] === D.hoy ? ` <button class="lnk" data-act="dtaco" data-id="${esc(t['ID'])}">deshacer entrega</button>` : '')) + '</div>';
+  });
+  if (!inact) for (let i = 0; i < tPend(r); i++) {
+    const id = 'fin' + r['Código'] + i;
+    rows += `<div class="rw"><span class="lbl">Taco</span><span class="pend">por entregar</span> ${selTal(id, talonariosLibres()[i])} <button class="btn dark sm" data-act="taco" data-c="${esc(r['Código'])}" data-inp="${id}">Entregar taco</button></div>`;
+  }
+  const est = noVino(r) ? 'No vino' : r['Estado'];
+  return `<div class="ficha"><div class="h"><span class="code">${esc(r['Código'])}</span><span class="nm">${esc(r['Nombre'])} ${esc(r['Apellidos'])}</span>
+    <span class="mono">${esc(r['Teléfono'])}</span><span class="muted">${esc(r['Email'])} · recogida ${diaCorto(r['Día recogida'])} · ${esc(r['Origen'])}</span>
+    <span class="badge b-${est.replace(' ', '-')}" style="margin-left:auto">${esc(est)}</span></div>
+    ${r['Notas'] ? `<div class="muted" style="margin-top:6px">📝 ${esc(r['Notas'])}</div>` : ''}
+    <div class="rows">${rows || '<div class="muted">Sin participaciones.</div>'}</div>
+    <div style="margin-top:10px;display:flex;gap:8px"><button class="btn ghost sm" data-act="nota" data-c="${esc(r['Código'])}">Añadir nota</button>
+    ${!inact && r['Sueltas entregadas'] === '' && !tk.length ? `<button class="btn ghost sm" data-act="anular" data-c="${esc(r['Código'])}">Anular reserva</button>` : ''}</div></div>`;
+}
+
+/* ===== tablas con orden ===== */
+function tabla(id, cols, rows, foot) {
+  const st = sortState[id];
+  if (st) {
+    const c = cols.find(x => x.k === st.k);
+    rows = rows.slice().sort((a, b) => {
+      const va = c.sv ? c.sv(a) : a[st.k], vb = c.sv ? c.sv(b) : b[st.k];
+      const r = (typeof va === 'number' && typeof vb === 'number') ? va - vb : String(va).localeCompare(String(vb), 'es', { numeric: true });
+      return st.d * r;
+    });
+  }
+  $(id).innerHTML = '<thead><tr>' + cols.map(c => `<th data-t="${id}" ${c.sv || c.k ? `data-k="${c.k}"` : ''} class="${c.n ? 'n' : ''}">${c.h}${st && st.k === c.k ? (st.d > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>' +
+    (rows.length ? rows.map(r => `<tr class="${r._cls || ''}">` + cols.map(c => `<td class="${c.n ? 'n' : ''}">${c.f(r)}</td>`).join('') + '</tr>').join('') : `<tr><td colspan="${cols.length}" class="muted" style="text-align:center;padding:18px">Nada que mostrar.</td></tr>`) +
+    '</tbody>' + (foot ? '<tfoot><tr>' + foot.map((f, i) => `<td class="${cols[i] && cols[i].n ? 'n' : ''}">${f}</td>`).join('') + '</tr></tfoot>' : '');
+}
+document.addEventListener('click', e => {
+  const th = e.target.closest('th[data-k]'); if (!th) return;
+  const id = th.dataset.t, k = th.dataset.k, st = sortState[id];
+  sortState[id] = { k, d: st && st.k === k ? -st.d : 1 };
+  renderAll();
+});
+
+/* ===== COMPRADORES ===== */
+function renderCompradores() {
+  const q = norm($('cQ').value.trim()), f = $('cF').value;
+  const list = D.reservas.filter(r => {
+    if (!matchQ(r, q)) return false;
+    switch (f) {
+      case 'act': return !inactiva(r);
+      case 'pend': return pendiente(r);
+      case 'fuera': return (TAC[r['Código']] || []).some(t => t['Estado'] === 'En depósito');
+      case 'comp': return r['Estado'] === 'Completa';
+      case 'novino': return noVino(r);
+      case 'inact': return inactiva(r);
+    }
+    return true;
+  });
+  if (!sortState.cTbl) list.sort((a, b) => String(a['Apellidos']).localeCompare(b['Apellidos'], 'es'));
+  $('cCount').textContent = list.length + (list.length === 1 ? ' persona' : ' personas');
+  const cols = [
+    { h: 'Código', k: 'Código', f: r => `<span class="mono">${esc(r['Código'])}</span>` },
+    { h: 'Nombre', k: 'Apellidos', f: r => `<b>${esc(r['Apellidos'])}, ${esc(r['Nombre'])}</b>` },
+    { h: 'Teléfono', k: 'Teléfono', f: r => `<span class="mono">${esc(r['Teléfono'])}</span>` },
+    { h: 'Recogida', k: 'Día recogida', f: r => diaCorto(r['Día recogida']) },
+    { h: 'Sueltas', k: 'Sueltas', n: 1, sv: r => Number(r['Sueltas']) || 0, f: r => Number(r['Sueltas']) ? (r['Sueltas entregadas'] !== '' ? `<span class="ok">${r['Sueltas entregadas']} ✓</span><div class="mono muted" style="font-size:11px">${esc(r['Participaciones'])}</div>` : `<span class="pend">${r['Sueltas']}</span>`) : '–' },
+    { h: 'Tacos', k: 'Tacos', sv: r => Number(r['Tacos']) || 0, f: r => {
+        const tk = TAC[r['Código']] || [];
+        const s = tk.map(t => `<span class="mono" title="${esc(t['ID'])}">${txtTaco(t)}</span>${t['Estado'] === 'Liquidado' ? ' ✓' : ''}`).join('<br>');
+        return (s || '') + (tPend(r) && !inactiva(r) ? `${s ? '<br>' : ''}<span class="pend">${tPend(r)} por entregar</span>` : '') || '–';
+      } },
+    { h: 'Pagado', k: 'pag', n: 1, sv: pagado, f: r => pagado(r) ? eur(pagado(r)) : '–' },
+    { h: 'Pendiente', k: 'pc', n: 1, sv: porCobrar, f: r => porCobrar(r) ? `<span class="pend">${eur(porCobrar(r))}</span>` : '–' },
+    { h: 'Estado', k: 'Estado', f: r => { const e = noVino(r) ? 'No vino' : r['Estado']; return `<span class="badge b-${e.replace(' ', '-')}">${esc(e)}</span>`; } },
+    { h: '', f: r => `<button class="btn sm" data-act="ficha" data-c="${esc(r['Código'])}">Ficha</button>` }
+  ];
+  list.forEach(r => r._cls = inactiva(r) ? 'done' : '');
+  const tot = (fn) => list.reduce((a, r) => a + fn(r), 0);
+  tabla('cTbl', cols, list, ['', `${list.length} personas`, '', '',
+    int(tot(r => inactiva(r) ? 0 : Number(r['Sueltas']) || 0)), int(tot(r => inactiva(r) ? 0 : Number(r['Tacos']) || 0)) + ' tacos',
+    eur(tot(pagado)), eur(tot(porCobrar)), '', '']);
+}
+['cQ', 'cF'].forEach(id => $(id).addEventListener('input', renderCompradores));
+
+/* ===== TACOS ===== */
+function renderTacos() {
+  const q = norm($('tQ').value.trim()), f = $('tF').value, num = Number(q);
+  const list = D.tacos.filter(t => {
+    if (f === 'fuera' && t['Estado'] !== 'En depósito') return false;
+    if (f === 'venc' && !tacoVencido(t)) return false;
+    if (f === 'liq' && t['Estado'] !== 'Liquidado') return false;
+    if (q) {
+      const tq = q.match(/^t\s?(\d{1,2})$/);
+      const inR = (/^\d{1,5}$/.test(q) && num >= Number(t['Desde']) && num <= Number(t['Hasta'])) || (tq && +tq[1] === +t['Talonario']);
+      if (!inR && !norm([t['ID'], t['Código reserva'], t['Titular'], t['Teléfono']].join(' ')).includes(q)) return false;
+    }
+    return true;
+  });
+  if (!sortState.tTbl) list.sort((a, b) => Number(a['Talonario']) - Number(b['Talonario']));
+  const fuera = D.tacos.filter(t => t['Estado'] === 'En depósito');
+  const plazo = dias(D.config.limiteLiq, D.hoy);
+  $('tInfo').innerHTML = `Plazo para liquidar: <b>${esc(D.config.limiteLiqEtiqueta)}</b> (${plazo >= 0 ? 'faltan ' + plazo + ' días' : '<span class="red">vencido</span>'}) · <b>${pl(fuera.length, 'taco', 'tacos')}</b> sin liquidar · <b>${eur(fuera.reduce((a, t) => a + Number(t['Participaciones']) * P(), 0))}</b> como máximo por cobrar.`;
+  const cols = [
+    { h: 'Taco', k: 'ID', f: t => `<span class="mono">${esc(t['ID'])}</span>` },
+    { h: 'Titular', k: 'Titular', f: t => `<b>${esc(t['Titular'])}</b> <span class="muted mono">${esc(t['Código reserva'])}</span>` },
+    { h: 'Teléfono', k: 'Teléfono', f: t => `<span class="mono">${esc(t['Teléfono'])}</span>` },
+    { h: 'Talonario', k: 'Talonario', sv: t => Number(t['Talonario']), f: t => `<span class="mono">${txtTaco(t)}</span>` },
+    { h: 'Entregado', k: 'Fecha entrega', f: t => `${fecha(t['Fecha entrega'])} <span class="muted">${esc(t['Entregado por'])}</span>` },
+    { h: 'Estado', k: 'Estado', f: t => t['Estado'] === 'Liquidado' ? `<span class="badge b-Liquidado">Liquidado ${fecha(t['Fecha liquidación'])}</span>` : `<span class="badge ${tacoVencido(t) ? 'b-Vencido' : 'b-Fuera'}">${tacoVencido(t) ? 'Fuera de plazo' : 'Sin liquidar'}</span>` },
+    { h: 'Vendidas', k: 'Vendidas', n: 1, sv: t => Number(t['Vendidas']) || 0, f: t => t['Estado'] === 'Liquidado' ? `${t['Vendidas']} / ${t['Participaciones']}${t['Nº devueltos'] ? `<div class="muted" style="font-size:11px">devueltas: ${esc(t['Nº devueltos'])}</div>` : ''}` : '–' },
+    { h: 'Cobrado', k: 'Importe liquidado', n: 1, sv: t => Number(t['Importe liquidado']) || 0, f: t => t['Estado'] === 'Liquidado' ? eur(t['Importe liquidado']) + (t['Medio de pago'] ? ` <span class="muted">${esc(t['Medio de pago'])}</span>` : '') : '–' },
+    { h: 'Por cobrar (máx.)', k: 'pc', n: 1, sv: t => t['Estado'] === 'En depósito' ? Number(t['Participaciones']) : 0, f: t => t['Estado'] === 'En depósito' ? `<span class="pend">${eur(Number(t['Participaciones']) * P())}</span>` : '–' },
+    { h: '', f: t => t['Estado'] === 'En depósito'
+        ? `<button class="btn pri sm" data-act="liq" data-id="${esc(t['ID'])}">Liquidar</button> <a class="wa" target="_blank" rel="noopener" href="${waLink(t['Teléfono'], msgTaco(t))}">WhatsApp</a>`
+        : (t['Fecha liquidación'] === D.hoy ? `<button class="lnk" data-act="dliq" data-id="${esc(t['ID'])}">deshacer liquidación</button>` : '') }
+  ];
+  list.forEach(t => t._cls = t['Estado'] === 'Liquidado' ? 'done' : '');
+  tabla('tTbl', cols, list);
+}
+['tQ', 'tF'].forEach(id => $(id).addEventListener('input', renderTacos));
+
+/* ===== NO VINIERON ===== */
+function renderNoVin() {
+  const list = D.reservas.filter(noVino);
+  const dl = D.config.diasLiberar;
+  $('nInfo').innerHTML = `Reservas cuyo día de recogida ya pasó y tienen algo sin recoger. ` +
+    (dl > 0 ? `Lo que no se recoge en <b>${dl} días</b> se libera solo y vuelve a estar a la venta.` : 'No se liberan solas.');
+  if (!sortState.nTbl) list.sort((a, b) => String(a['Día recogida']).localeCompare(b['Día recogida']));
+  const falta = r => [sPend(r) ? r['Sueltas'] + ' sueltas' : '', tPend(r) ? tPend(r) + (tPend(r) > 1 ? ' tacos' : ' taco') : ''].filter(Boolean).join(' + ');
+  tabla('nTbl', [
+    { h: 'Código', k: 'Código', f: r => `<span class="mono">${esc(r['Código'])}</span>` },
+    { h: 'Nombre', k: 'Apellidos', f: r => `<b>${esc(r['Apellidos'])}, ${esc(r['Nombre'])}</b>` },
+    { h: 'Teléfono', k: 'Teléfono', f: r => `<span class="mono">${esc(r['Teléfono'])}</span>` },
+    { h: 'Día elegido', k: 'Día recogida', f: r => diaCorto(r['Día recogida']) },
+    { h: 'Le falta', f: falta },
+    { h: 'Importe', n: 1, k: 'pc', sv: porCobrar, f: r => eur(porCobrar(r)) },
+    { h: 'Se libera', k: 'lib', sv: r => r['Día recogida'], f: r => dl > 0 ? (() => { const x = dias(addD(r['Día recogida'], dl), D.hoy); return x <= 0 ? '<span class="red">hoy</span>' : `en ${x} días (${fecha(addD(r['Día recogida'], dl + 1))})`; })() : '–' },
+    { h: '', f: r => `<a class="wa" target="_blank" rel="noopener" href="${waLink(r['Teléfono'], msgNoVino(r))}">WhatsApp</a> <button class="btn sm" data-act="ficha" data-c="${esc(r['Código'])}">Ficha</button>` }
+  ], list);
+}
+
+/* ===== VENTAS ===== */
+function renderVentas() {
+  const r = D.resumen, nn = n(), p = P(), c = D.config;
+  const act = D.reservas.filter(x => !inactiva(x));
+  const sRes = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0), 0);
+  const tResN = act.reduce((a, x) => a + tPend(x), 0) * nn;
+  const total = c.sueltasDisp + c.tacosDisp * nn;
+  const libres = r.sueltasLibres + r.tacosLibres * nn;
+  const filas = [
+    ['Vendidas sueltas (cobradas)', r.sueltasEntregadas, '#1E7B3A'],
+    ['Vendidas en tacos (liquidadas)', r.vendidasTacos, '#2E9B4F'],
+    ['En tacos sin liquidar', r.participacionesEnDeposito, '#1F4E9A'],
+    ['Reservadas sueltas sin recoger', sRes, '#E0A800'],
+    ['Reservadas en tacos sin entregar', tResN, '#F2C94C'],
+    ['Libres para vender', libres, '#CFCAB9']
+  ];
+  $('vProg').innerHTML = filas.map(f => `<div title="${f[0]}: ${f[1]}" style="width:${total ? f[1] / total * 100 : 0}%;background:${f[2]}"></div>`).join('');
+  $('vProgTxt').textContent = `Vendido ${total ? Math.round((r.sueltasEntregadas + r.vendidasTacos) / total * 100) : 0} % de ${int(total)} participaciones`;
+  const cuadre = filas.reduce((a, f) => a + f[1], 0);
+  $('vPart').innerHTML = '<tr><th>Situación</th><th class="n">Participaciones</th><th class="n">Importe</th></tr>' +
+    filas.map(f => `<tr><td><span style="display:inline-block;width:10px;height:10px;background:${f[2]};margin-right:6px"></span>${f[0]}</td><td class="n">${int(f[1])}</td><td class="n">${eur(f[1] * p)}</td></tr>`).join('') +
+    `<tfoot><tr><td>Total para vender (${int(c.sueltasDisp)} sueltas + ${c.tacosDisp} tacos × ${nn})</td><td class="n">${int(total)}</td><td class="n">${eur(total * p)}</td></tr></tfoot>` +
+    (cuadre !== total ? `<tr><td colspan="3" class="red">Atención: la suma (${cuadre}) no cuadra con el total (${total}). Revisa la hoja.</td></tr>` : '') +
+    `<tr><td class="muted" colspan="3" style="font-size:12px">Las devueltas de los tacos (${int(r.devueltasTacos)}) vuelven a las sueltas libres.</td></tr>`;
+  const vend = r.sueltasEntregadas + r.vendidasTacos;
+  $('vDinero').innerHTML = '<tr><th>Concepto</th><th class="n">Importe</th></tr>' +
+    `<tr><td>Cobrado (caja)</td><td class="n"><b>${eur(r.totalCaja)}</b></td></tr>` +
+    `<tr><td style="padding-left:24px">de sueltas</td><td class="n">${eur(r.importeSueltas)}</td></tr>` +
+    `<tr><td style="padding-left:24px">de tacos liquidados</td><td class="n">${eur(r.importeTacos)}</td></tr>` +
+    `<tr><td>Por cobrar: reservas sin recoger</td><td class="n">${eur((sRes + tResN) * p)}</td></tr>` +
+    `<tr><td>Por cobrar: tacos sin liquidar (máximo)</td><td class="n">${eur(r.importeEnDeposito)}</td></tr>` +
+    `<tr><td>Desglose de lo vendido: juega (${eur(c.jugado)} × ${int(vend)})</td><td class="n">${eur(r.jugadoEstimado)}</td></tr>` +
+    `<tr><td>Desglose de lo vendido: donativo para el club (${eur(c.donativo)} × ${int(vend)})</td><td class="n">${eur(r.donativoEstimado)}</td></tr>`;
+  const porDia = {};
+  D.caja.forEach(m => { porDia[m['Fecha']] = (porDia[m['Fecha']] || 0) + (Number(m['Importe']) || 0); });
+  const ks = Object.keys(porDia).sort(), mx = Math.max(1, ...ks.map(k => porDia[k]));
+  $('vDias').innerHTML = ks.length ? ks.map(k => `<div class="barrow"><span>${diaCorto(k)}</span><div class="b" style="width:${Math.max(0, porDia[k]) / mx * 100}%"></div><span class="mono" style="text-align:right">${eur0(porDia[k])}</span></div>`).join('') : '<p class="muted">Todavía no hay cobros.</p>';
+  const med = { Efectivo: 0, TPV: 0 };
+  D.caja.forEach(m => { med[m['Medio'] === 'TPV' ? 'TPV' : 'Efectivo'] += Number(m['Importe']) || 0; });
+  $('vMedio').innerHTML = '<tr><th>Medio</th><th class="n">Importe</th></tr>' +
+    `<tr><td>Efectivo</td><td class="n">${eur(med.Efectivo)}</td></tr><tr><td>TPV</td><td class="n">${eur(med.TPV)}</td></tr>`;
+  let html = '';
+  for (let t = 1; t <= NT(); t++) {
+    const rg = rangoT(t), tk = USO.taco[t];
+    let vend = 0, fuera = 0;
+    for (let x = rg[0]; x <= rg[1]; x++) { const u = USO.set[t + ':' + x]; if (!u) continue; if (tk && u === tk['ID'] && tk['Estado'] === 'En depósito') fuera++; else vend++; }
+    const libre = n() - vend - fuera;
+    const quien = tk ? `Taco de ${esc(tk['Titular'])}${tk['Estado'] === 'Liquidado' ? ' (liquidado)' : ''}` : (vend ? 'Sueltas' : 'Libre');
+    html += `<div class="tal ${tk && tk['Estado'] === 'En depósito' ? 'taco' : ''} ${!vend && !fuera ? 'free' : ''}"><b>T${t}</b> <span class="muted">${rg[0]}–${rg[1]}</span>
+      <div class="bar2"><div style="width:${vend / n() * 100}%;background:#1E7B3A"></div><div style="width:${fuera / n() * 100}%;background:#1F4E9A"></div></div>
+      <div>${quien}</div><div class="muted">${vend} vendidas · ${libre} libres</div></div>`;
+  }
+  $('vTal').innerHTML = html;
+}
+
+/* ===== CAJA ===== */
+function renderCaja() {
+  const p = D.pendiente;
+  $('kDesde').textContent = p.desde ? 'Desde el último cierre (' + fechaL(p.desde.slice(0, 10)) + ' ' + p.desde.slice(11, 16) + ')' : 'Desde el inicio: todavía no hay cierres.';
+  $('kMovs').innerHTML = '<tr><th>Fecha</th><th>Hora</th><th>Concepto</th><th>Reserva</th><th>Cobró</th><th>Medio</th><th class="n">Importe</th></tr>' +
+    p.movimientos.map(m => `<tr><td>${fecha(m['Fecha'])}</td><td>${esc(String(m['Hora']).slice(0, 5))}</td><td>${esc(m['Concepto'])}</td><td class="mono">${esc(m['Código'])}</td><td>${esc(m['Cobrado por'])}</td><td>${esc(m['Medio'] || 'Efectivo')}</td><td class="n ${Number(m['Importe']) < 0 ? 'red' : ''}">${eur(m['Importe'])}</td></tr>`).join('') +
+    `<tfoot><tr><td colspan="6">Efectivo que debe haber en la caja</td><td class="n">${eur(p.total)}</td></tr><tr><td colspan="6">Cobrado por TPV (no está en la caja)</td><td class="n">${eur(p.tpv || 0)}</td></tr></tfoot>`;
+  $('kEsperado').value = eur(p.total);
+  $('kHist').innerHTML = '<tr><th>Fecha</th><th class="n">Efectivo esperado</th><th class="n">Contado</th><th class="n">Dif.</th><th class="n">TPV</th><th>Quién</th><th>Notas</th></tr>' +
+    D.cierres.slice().reverse().map(c => `<tr><td>${fecha(c['Fecha'])} ${esc(String(c['Hora']).slice(0, 5))}</td><td class="n">${eur(c['Esperado'])}</td><td class="n">${eur(c['Contado'])}</td><td class="n ${Number(c['Diferencia']) ? 'red' : ''}">${eur(c['Diferencia'])}</td><td class="n">${eur(c['TPV del periodo'])}</td><td>${esc(c['Firmas'])}</td><td>${esc(c['Notas'])}</td></tr>`).join('');
+}
+
+/* ===== REGISTRO ===== */
+function renderRegistro() {
+  const q = norm($('rQ').value.trim());
+  const list = D.registro.filter(x => !q || norm([x['Usuario'], x['Acción'], x['Código'], x['Detalle']].join(' ')).includes(q));
+  $('rTbl').innerHTML = '<tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Acción</th><th>Reserva</th><th>Detalle</th></tr>' +
+    list.map(x => `<tr><td>${fecha(x['Fecha'])}</td><td>${esc(String(x['Hora']).slice(0, 5))}</td><td>${esc(x['Usuario'])}</td><td><b>${esc(x['Acción'])}</b></td><td class="mono">${esc(x['Código'])}</td><td>${esc(x['Detalle'])}</td></tr>`).join('');
+}
+$('rQ').addEventListener('input', renderRegistro);
+
+/* ===== diálogos ===== */
+function openDlg(title, body, buttons, wide) {
+  $('dlg').classList.toggle('wide', !!wide);
+  $('dlgH').textContent = title; $('dlgB').innerHTML = body; $('dlgF').innerHTML = '';
+  (buttons || []).forEach(b => {
+    const el = document.createElement('button'); el.className = 'btn ' + (b.cls || ''); el.textContent = b.text;
+    el.addEventListener('click', b.fn); $('dlgF').appendChild(el);
+  });
+  if (!$('dlg').open) $('dlg').showModal();
+}
+const closeDlg = () => $('dlg').close();
+const cancelBtn = { text: 'Cancelar', cls: 'ghost', fn: closeDlg };
+async function run(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } catch (e) { const er = $('dlgErr'); if (er && $('dlg').open) er.textContent = e.message; else toast(e.message); btn.disabled = false; }
+}
+const getR = c => D.reservas.find(r => r['Código'] === c);
+const getT = id => D.tacos.find(t => t['ID'] === id);
+let fichaAbierta = null;
+async function tras(msg) { toast(msg); await load(); if (fichaAbierta && $('dlg').open) verFicha(fichaAbierta); else closeDlg(); }
+
+const medioHtml = (def) => `<label>¿Cómo paga?</label><div class="medio">
+  <label><input type="radio" name="dMedio" value="Efectivo" ${def === 'Efectivo' ? 'checked' : ''}>Efectivo</label>
+  <label><input type="radio" name="dMedio" value="TPV" ${def === 'TPV' ? 'checked' : ''}>TPV</label></div>`;
+const medioSel = () => (document.querySelector('input[name=dMedio]:checked') || {}).value;
+
+function dlgSueltas(c) {
+  const r = getR(c), q = Number(r['Sueltas']);
+  const prop = proponerSueltas(q);
+  const fila = (g) => `<div class="grp"><select class="gT">${Array.from({ length: NT() }, (_, i) => i + 1).filter(t => !tacoFuera(t)).map(t => `<option value="${t}" ${g && g.t === t ? 'selected' : ''}>Talonario ${t}</option>`).join('')}</select>
+    <input class="gN" placeholder="p. ej. 1, 2, 3 o 1-3" value="${g ? fmtNums(g.nums) : ''}"><span class="muted gC"></span><button class="lnk gX" title="Quitar">✕</button></div>`;
+  openDlg('Cobrar y entregar sueltas · ' + c,
+    `<p style="font-size:16px;margin-top:0"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · tiene reservadas <b>${q}</b></p>
+     <label>¿Qué participaciones le das? (talonario y números)</label>
+     <div id="dGrupos">${(prop.length ? prop : [null]).map(fila).join('')}</div>
+     <button class="lnk" id="dAdd" style="margin-top:6px">+ otro talonario</button>
+     <p class="muted" style="font-size:12px">Te proponemos las siguientes libres. Si das otras, cámbialas.</p>
+     ${medioHtml('Efectivo')}
+     <p style="margin-top:12px">Se lleva <b id="dCant">0</b> · Cobrar: <span class="bigv" id="dImp">0 €</span></p>
+     <div class="err" id="dlgErr"></div>`,
+    [cancelBtn, { text: 'Cobrado y entregado', cls: 'pri', fn: e => run(e.target, async () => {
+      const grupos = leerGrupos();
+      if (!grupos.length) throw new Error('Indica qué participaciones le das.');
+      const d = await api({ action: 'entregarSueltas', codigo: c, medio: medioSel(), grupos: grupos.map(g => ({ talonario: g.t, nums: fmtNums(g.nums) })) });
+      await tras('Cobrados ' + eur(d.importe) + ' (' + d.medio + ') a ' + r['Nombre'] + ' · ' + d.participaciones);
+    }) }]);
+  const leerGrupos = () => [...document.querySelectorAll('#dGrupos .grp')].map(el => ({ t: +el.querySelector('.gT').value, nums: parseNums(el.querySelector('.gN').value) })).filter(g => g.nums.length);
+  const upd = () => {
+    let tot = 0; $('dlgErr').textContent = '';
+    document.querySelectorAll('#dGrupos .grp').forEach(el => {
+      try {
+        const t = +el.querySelector('.gT').value, nums = parseNums(el.querySelector('.gN').value), rg = rangoT(t);
+        const mal = nums.find(x => x < rg[0] || x > rg[1]), usada = nums.find(x => USO.set[t + ':' + x]);
+        if (mal) $('dlgErr').textContent = `La ${mal} no es del talonario ${t} (${rg[0]}–${rg[1]}).`;
+        else if (usada) $('dlgErr').textContent = `La ${usada} del talonario ${t} ya está entregada.`;
+        el.querySelector('.gC').textContent = nums.length + ' part.'; tot += nums.length;
+      } catch (er) { $('dlgErr').textContent = er.message; }
+    });
+    $('dCant').textContent = tot + (tot === 1 ? ' participación' : ' participaciones') + (tot !== q ? ` (reservó ${q})` : '');
+    $('dImp').textContent = eur(tot * P());
   };
-  // Comprobaciones rápidas; el servidor vuelve a comprobarlo todo.
-  if (!body.nombre.trim() || !body.apellidos.trim()) return $('err').textContent = 'Faltan el nombre o los apellidos.';
-  if (body.telefono.replace(/\D/g, '').length < 9) return $('err').textContent = 'Revisa el teléfono.';
-  if (!q.sueltas && !q.tacos) return $('err').textContent = 'Indica cuántas participaciones o tacos quieres.';
-  if (!dia) return $('err').textContent = 'Elige el día de recogida.';
-  if (!body.acepta) return $('err').textContent = 'Tienes que aceptar las condiciones.';
-  $('go').disabled = true; $('go').textContent = 'Enviando…';
-  try {
-    const r = await api(body);
-    if (!r.ok) throw new Error(r.error);
-    const d = r.data;
-    $('okCodigo').textContent = d.codigo;
-    let li = '';
-    if (d.sueltas) li += `<li>${d.sueltas} participaciones sueltas: paga <b>${eur(d.importeSueltas)}</b> al recogerlas (mejor en efectivo; también hay datáfono).</li>`;
-    if (d.tacos) li += `<li>${d.tacos} ${d.tacos === 1 ? 'taco' : 'tacos'} para vender. Liquidación antes del ${d.limiteLiqEtiqueta.toLowerCase()}.</li>`;
-    li += `<li>Recogida: <b>${d.diaEtiqueta}</b>, ${d.horario}, en ${d.lugar}.</li>`;
-    $('okLista').innerHTML = li;
-    $('formSec').hidden = true; $('okSec').hidden = false;
-    window.scrollTo(0, 0);
-  } catch (e) {
-    $('err').textContent = e.message || 'No se ha podido enviar. Inténtalo de nuevo.';
-    $('go').disabled = false; $('go').textContent = 'Reservar';
+  $('dGrupos').addEventListener('input', upd); $('dGrupos').addEventListener('change', upd);
+  $('dGrupos').addEventListener('click', ev => { if (ev.target.classList.contains('gX')) { ev.target.closest('.grp').remove(); upd(); } });
+  $('dAdd').addEventListener('click', () => { $('dGrupos').insertAdjacentHTML('beforeend', fila(null)); upd(); });
+  upd();
+}
+function dlgTaco(c, tal) {
+  const r = getR(c);
+  if (!(tal >= 1)) return toast('No quedan talonarios completos libres.');
+  const rg = rangoT(tal);
+  openDlg('Entregar taco · ' + c,
+    `<p style="font-size:16px;margin-top:0"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · ${esc(r['Teléfono'])}</p>
+     <p>Talonario <span class="bigv">${tal}</span> &nbsp; participaciones <span class="bigv">${rg[0]}–${rg[1]}</span></p>
+     <p class="muted">${n()} participaciones · ${eur(n() * P())} si las vende todas.</p>
+     <div class="note"><b>Díselo en voz alta:</b> antes del ${esc(D.config.limiteLiqEtiqueta.toLowerCase())} trae el dinero de lo vendido y devuelve lo que no hayas vendido. Lo que no devuelvas, lo pagas.${r['Email'] ? ' (Le llegará un correo con sus números.)' : ''}</div>
+     <div class="err" id="dlgErr"></div>`,
+    [cancelBtn, { text: 'Entregado', cls: 'dark', fn: e => run(e.target, async () => {
+      const d = await api({ action: 'entregarTaco', codigo: c, talonario: tal });
+      await tras('Talonario ' + d.talonario + ' (' + d.desde + '–' + d.hasta + ') entregado a ' + r['Nombre']);
+    }) }]);
+}
+function dlgLiq(id) {
+  const t = getT(id), m = Number(t['Participaciones']);
+  openDlg('Liquidar taco ' + id,
+    `<p style="font-size:16px;margin-top:0"><b>${esc(t['Titular'])}</b> · <span class="mono">${txtTaco(t)}</span></p>
+     <label>¿Qué participaciones devuelve sin vender? (déjalo vacío si las ha vendido todas)</label>
+     <input id="dDev" placeholder="p. ej. ${t['Desde']}, ${+t['Desde'] + 1} o ${+t['Hasta'] - 4}-${t['Hasta']}">
+     <p>Devuelve <b id="dNDev">0</b> · Vendidas <b id="dVend">${m}</b> · Cobrar: <span class="bigv" id="dImp">${eur(m * P())}</span></p>
+     <div id="dMedioBox">${medioHtml('Efectivo')}</div>
+     <div class="note">Comprueba que los números que escribes son los que te devuelve y guárdalas aparte: vuelven a estar a la venta.</div>
+     <label>Notas (opcional)</label><input id="dNotas">
+     <div class="err" id="dlgErr"></div>`,
+    [cancelBtn, { text: 'Cobrado y liquidado', cls: 'pri', fn: e => run(e.target, async () => {
+      const dev = parseNums($('dDev').value);
+      const d = await api({ action: 'liquidarTaco', id: id, devueltos: fmtNums(dev), medio: medioSel(), notas: $('dNotas').value });
+      await tras('Taco ' + id + ' liquidado: ' + eur(d.importe));
+    }) }]);
+  $('dDev').addEventListener('input', () => {
+    $('dlgErr').textContent = '';
+    try {
+      const dev = parseNums($('dDev').value), mal = dev.find(x => x < +t['Desde'] || x > +t['Hasta']);
+      if (mal) $('dlgErr').textContent = `La ${mal} no es de este taco (${t['Desde']}–${t['Hasta']}).`;
+      const v = m - dev.length;
+      $('dNDev').textContent = dev.length; $('dVend').textContent = v; $('dImp').textContent = eur(v * P());
+      $('dMedioBox').hidden = v === 0;
+    } catch (er) { $('dlgErr').textContent = er.message; }
+  });
+  $('dDev').focus();
+}
+function confirmar(title, html, okText, fn) {
+  openDlg(title, html + '<div class="err" id="dlgErr"></div>', [cancelBtn, { text: okText, cls: 'dark', fn: e => run(e.target, fn) }]);
+}
+function verFicha(c) {
+  fichaAbierta = c;
+  openDlg('Ficha ' + c, ficha(getR(c)), [{ text: 'Cerrar', cls: 'ghost', fn: () => { fichaAbierta = null; closeDlg(); } }], true);
+}
+function dlgNueva() {
+  fichaAbierta = null;
+  const ds = `<option value="${D.hoy}">Hoy (${fechaL(D.hoy)})</option>` + D.dias.filter(d => d.fecha !== D.hoy).map(d => `<option value="${d.fecha}">${esc(d.etiqueta)}</option>`).join('');
+  openDlg('Nueva reserva',
+    `<p class="muted" style="margin-top:0">Para quien llega sin reserva o llama por teléfono. No se aplican los topes por familia, pero sí lo que quede.</p>
+     <div class="row2"><div><label>Nombre</label><input id="nNombre"></div><div><label>Apellidos</label><input id="nApellidos"></div></div>
+     <div class="row2"><div><label>Teléfono</label><input id="nTel" inputmode="tel"></div><div><label>Email (opcional)</label><input id="nEmail" type="email"></div></div>
+     <label>Día de recogida</label><select id="nDia">${ds}</select>
+     <div class="row2"><div><label>Participaciones sueltas</label><input id="nSueltas" type="number" min="0" value="0"></div><div><label>Tacos</label><input id="nTacos" type="number" min="0" value="0"></div></div>
+     <label>Notas</label><input id="nNotas"><div class="err" id="dlgErr"></div>`,
+    [cancelBtn, { text: 'Crear reserva', cls: 'pri', fn: e => run(e.target, async () => {
+      const d = await api({ action: 'nuevaReserva', nombre: $('nNombre').value, apellidos: $('nApellidos').value, telefono: $('nTel').value,
+        email: $('nEmail').value, sueltas: Number($('nSueltas').value) || 0, tacos: Number($('nTacos').value) || 0,
+        dia: $('nDia').value, notas: $('nNotas').value });
+      await load(); toast('Reserva ' + d.codigo + ' creada'); verFicha(d.codigo);
+    }) }]);
+}
+
+/* ===== acciones (un solo manejador) ===== */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, c = b.dataset.c, id = b.dataset.id;
+  switch (a) {
+    case 'salir': return logout();
+    case 'reload': return load().then(() => toast('Actualizado'));
+    case 'cerrarDlg': fichaAbierta = null; return closeDlg();
+    case 'nueva': return dlgNueva();
+    case 'excel': return excel();
+    case 'ficha': return verFicha(c);
+    case 'suel': return dlgSueltas(c);
+    case 'taco': return dlgTaco(c, $(b.dataset.inp) ? Number($(b.dataset.inp).value) : 0);
+    case 'liq': return dlgLiq(id);
+    case 'dsuel': return confirmar('Deshacer recogida · ' + c, `<p>Se anula la recogida de las sueltas de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b> (${esc(getR(c)['Participaciones'])}) y se restan <b>${eur(getR(c)['Importe sueltas'])}</b> (${esc(getR(c)['Medio de pago'])}). Devuélvele el dinero y recoge las participaciones.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerSueltas', codigo: c }); await tras('Recogida deshecha'); });
+    case 'dtaco': return confirmar('Deshacer entrega · ' + id, `<p>Se anula la entrega del taco <b>${esc(id)}</b> (talonario ${getT(id)['Talonario']}). Recoge el talonario.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerTaco', id: id }); await tras('Entrega deshecha'); });
+    case 'dliq': return confirmar('Deshacer liquidación · ' + id, `<p>El taco <b>${esc(id)}</b> vuelve a quedar sin liquidar y se restan <b>${eur(getT(id)['Importe liquidado'])}</b> de la caja.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerLiquidacion', id: id }); await tras('Liquidación deshecha'); });
+    case 'nota': return openDlg('Nota · ' + c, `<label>Nota</label><textarea id="dNota" rows="3"></textarea><div class="err" id="dlgErr"></div>`,
+      [cancelBtn, { text: 'Guardar', cls: 'pri', fn: ev => run(ev.target, async () => { await api({ action: 'nota', codigo: c, nota: $('dNota').value }); await tras('Nota guardada'); }) }]);
+    case 'anular': return confirmar('Anular ' + c, `<p>¿Anular la reserva de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b>? Lo reservado vuelve a quedar libre.</p>`, 'Anular reserva', async () => { fichaAbierta = null; await api({ action: 'anular', codigo: c }); await tras(c + ' anulada'); });
+    case 'copiarTel': {
+      const tels = [...new Set(D.tacos.filter(t => t['Estado'] === 'En depósito').map(t => t['Teléfono']))];
+      await copiar(tels.join('\n')); return toast(tels.length + ' teléfonos copiados');
+    }
+    case 'copiarMsg':
+      await copiar(`Hola. Te recordamos desde el Torrelodones Rugby Club que el ${D.config.limiteLiqEtiqueta.toLowerCase()} es el último día para liquidar tu taco de lotería: trae el dinero de lo vendido y devuelve las participaciones que no hayas vendido. Martes y jueves de 18:00 a 20:00 en la oficina del club. Las que no se devuelvan se consideran vendidas. ¡Gracias!`);
+      return toast('Mensaje copiado');
+    case 'cierre': {
+      $('kErr').textContent = ''; b.disabled = true;
+      try {
+        const d = await api({ action: 'cierre', contado: $('kContado').value.replace(',', '.'), firmas: $('kFirmas').value, notas: $('kNotas').value });
+        $('kContado').value = ''; $('kNotas').value = '';
+        toast('Cierre registrado. Diferencia: ' + eur(d.diferencia)); await load();
+      } catch (er) { $('kErr').textContent = er.message; }
+      b.disabled = false; return;
+    }
   }
 });
 
-init();
+/* ===== Excel de cuentas ===== */
+function hoja(rows, cols) {
+  const aoa = [cols.map(c => c[0])].concat(rows.map(r => cols.map(c => {
+    const v = typeof c[1] === 'function' ? c[1](r) : r[c[1]];
+    return (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v) && !/Teléfono|Código|ID/.test(c[0])) ? Number(v) : v;
+  })));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = cols.map((c, i) => ({ wch: Math.max(10, Math.min(45, Math.max(...aoa.map(r => String(r[i] == null ? '' : r[i]).length + 2)))) }));
+  return ws;
+}
+async function excel() {
+  await load();
+  const r = D.resumen, c = D.config, nn = n(), p = P();
+  const act = D.reservas.filter(x => !inactiva(x));
+  const sRes = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0), 0);
+  const tResN = act.reduce((a, x) => a + tPend(x), 0) * nn;
+  const total = c.sueltasDisp + c.tacosDisp * nn;
+  const libres = r.sueltasLibres + r.tacosLibres * nn;
+  const tc = D.cierres.reduce((a, x) => a + (Number(x['Contado']) || 0), 0);
+  const td = D.cierres.reduce((a, x) => a + (Number(x['Diferencia']) || 0), 0);
+  const res = [
+    ['CUENTAS · LOTERÍA DE NAVIDAD · TORRELODONES RUGBY CLUB'],
+    ['Generado', fechaL(D.hoy) + ' por ' + S.nombre], ['Números', c.numeros.join(' · ')],
+    ['Precio participación (€)', p], ['Juega (€)', c.jugado], ['Donativo (€)', c.donativo], ['Plazo de liquidación de tacos', fechaL(c.limiteLiq)],
+    [], ['PARTICIPACIONES', 'Cantidad', 'Importe (€)'],
+    ['Total para vender', total, total * p],
+    ['Vendidas sueltas (cobradas)', r.sueltasEntregadas, r.sueltasEntregadas * p],
+    ['Vendidas en tacos (liquidadas)', r.vendidasTacos, r.vendidasTacos * p],
+    ['En tacos sin liquidar', r.participacionesEnDeposito, r.importeEnDeposito],
+    ['Reservadas sueltas sin recoger', sRes, sRes * p],
+    ['Reservadas en tacos sin entregar', tResN, tResN * p],
+    ['Libres para vender', libres, libres * p],
+    [], ['DINERO', '', 'Importe (€)'],
+    ['Cobrado (movimientos de caja)', '', r.totalCaja],
+    ['   en efectivo', '', D.caja.filter(x => x['Medio'] !== 'TPV').reduce((a, x) => a + (Number(x['Importe']) || 0), 0)],
+    ['   por TPV', '', D.caja.filter(x => x['Medio'] === 'TPV').reduce((a, x) => a + (Number(x['Importe']) || 0), 0)],
+    ['   de sueltas', '', r.importeSueltas], ['   de tacos liquidados', '', r.importeTacos],
+    ['Efectivo contado en cierres de caja', '', tc], ['Diferencias en cierres', '', td], ['Efectivo sin cerrar ahora mismo', '', D.pendiente.total],
+    ['Desglose de lo vendido: juega', '', r.jugadoEstimado], ['Desglose de lo vendido: donativo para el club', '', r.donativoEstimado],
+    [], ['TACOS', 'Cantidad', ''],
+    ['Ofrecidos', c.tacosDisp, ''], ['Entregados', r.tacosEntregados, ''], ['Sin liquidar', r.tacosEnDeposito, ''], ['Fuera de plazo', r.tacosVencidos, ''], ['Liquidados', r.tacosLiquidados, ''], ['Participaciones devueltas', r.devueltasTacos, '']
+  ];
+  const wsR = XLSX.utils.aoa_to_sheet(res); wsR['!cols'] = [{ wch: 46 }, { wch: 14 }, { wch: 14 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
+  XLSX.utils.book_append_sheet(wb, hoja(D.reservas, [
+    ['Código', 'Código'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Email', 'Email'],
+    ['Estado', x => noVino(x) ? 'No vino' : x['Estado']], ['Día recogida', 'Día recogida'],
+    ['Sueltas reservadas', 'Sueltas'], ['Sueltas recogidas', 'Sueltas entregadas'], ['Participaciones sueltas', 'Participaciones'], ['Pagó sueltas con', 'Medio de pago'], ['Tacos reservados', 'Tacos'],
+    ['Sus tacos', x => (TAC[x['Código']] || []).map(t => 'T' + t['Talonario'] + ' (' + t['Desde'] + '-' + t['Hasta'] + ')').join(', ')],
+    ['Pagado (€)', pagado], ['Pendiente (€)', porCobrar], ['Notas', 'Notas']]), 'Compradores');
+  XLSX.utils.book_append_sheet(wb, hoja(D.tacos, [
+    ['ID', 'ID'], ['Titular', 'Titular'], ['Teléfono', 'Teléfono'], ['Talonario', 'Talonario'], ['Desde', 'Desde'], ['Hasta', 'Hasta'], ['Participaciones', 'Participaciones'],
+    ['Entregado', 'Fecha entrega'], ['Entregado por', 'Entregado por'], ['Estado', t => tacoVencido(t) ? 'Fuera de plazo' : t['Estado']],
+    ['Vendidas', 'Vendidas'], ['Devueltas', 'Devueltas'], ['Nº devueltos', 'Nº devueltos'], ['Cobrado (€)', 'Importe liquidado'], ['Medio', 'Medio de pago'],
+    ['Por cobrar máx. (€)', t => t['Estado'] === 'En depósito' ? Number(t['Participaciones']) * p : 0], ['Liquidado el', 'Fecha liquidación'], ['Notas', 'Notas']]), 'Tacos');
+  XLSX.utils.book_append_sheet(wb, hoja(D.caja, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Concepto', 'Concepto'], ['Código', 'Código'], ['Importe (€)', 'Importe'], ['Medio', x => x['Medio'] || 'Efectivo'], ['Cobrado por', 'Cobrado por']]), 'Caja');
+  XLSX.utils.book_append_sheet(wb, hoja(D.cierres, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Esperado (€)', 'Esperado'], ['Contado (€)', 'Contado'], ['Diferencia (€)', 'Diferencia'], ['TPV del periodo (€)', 'TPV del periodo'], ['Firmas', 'Firmas'], ['Notas', 'Notas']]), 'Cierres');
+  XLSX.utils.book_append_sheet(wb, hoja(D.reservas.filter(noVino), [['Código', 'Código'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Día elegido', 'Día recogida'], ['Pendiente (€)', porCobrar]]), 'No vinieron');
+  XLSX.utils.book_append_sheet(wb, hoja(D.registro, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Quién', 'Usuario'], ['Acción', 'Acción'], ['Código', 'Código'], ['Detalle', 'Detalle']]), 'Registro');
+  XLSX.writeFile(wb, 'Loteria_TRC_cuentas_' + D.hoy + '.xlsx');
+}
+
+if (S.token) start();
 </script>
 </body>
 </html>
