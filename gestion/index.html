@@ -242,7 +242,7 @@
           <table class="tbl" id="vPart"></table>
           <h3>Mapa de talonarios</h3>
           <div class="tgrid" id="vTal"></div>
-          <p class="muted" style="font-size:12px">Verde: vendidas · Azul: en un taco sin liquidar · Gris: libres.</p>
+          <p class="muted" style="font-size:12px">Azul: taco fuera sin liquidar · Blanco: en la oficina. Para corregir un talonario mal apuntado, cambia la columna «Talonario» en la pestaña Tacos de la hoja.</p>
         </div>
         <div>
           <h2>Dinero</h2>
@@ -389,37 +389,14 @@ function parseGrupos(txt) {
     try { return { t: +m[1], nums: parseNums(m[2]) }; } catch (e) { return null; }
   }).filter(Boolean);
 }
-let USO = { set: {}, taco: {} };
+let USO = { taco: {} };
 function calcUso() {
-  const set = {}, taco = {};
-  D.reservas.forEach(r => parseGrupos(r['Participaciones']).forEach(g => g.nums.forEach(x => { set[g.t + ':' + x] = r['Código']; })));
-  D.tacos.forEach(t => {
-    const tn = +t['Talonario']; if (!tn) return;
-    taco[tn] = t;
-    const dev = t['Estado'] === 'Liquidado' ? (() => { try { return parseNums(t['Nº devueltos']); } catch (e) { return []; } })() : [];
-    const rg = rangoT(tn);
-    for (let x = rg[0]; x <= rg[1]; x++) if (!dev.includes(x) && !set[tn + ':' + x]) set[tn + ':' + x] = t['ID'];
-  });
-  USO = { set, taco };
+  const taco = {};
+  D.tacos.forEach(t => { const tn = +t['Talonario']; if (tn) taco[tn] = t; });
+  USO = { taco };
 }
-const usadosT = t => { const rg = rangoT(t); let k = 0; for (let x = rg[0]; x <= rg[1]; x++) if (USO.set[t + ':' + x]) k++; return k; };
-const tacoFuera = t => USO.taco[t] && USO.taco[t]['Estado'] === 'En depósito';
-// Talonarios completos y libres para dar como taco (del 1 hacia arriba).
-function talonariosLibres() { const out = []; for (let t = 1; t <= NT(); t++) if (!USO.taco[t] && usadosT(t) === 0) out.push(t); return out; }
-// Propuesta de participaciones sueltas: primero talonarios empezados, luego del último hacia atrás.
-function proponerSueltas(k) {
-  const ts = [];
-  for (let t = NT(); t >= 1; t--) if (!tacoFuera(t)) ts.push(t);
-  ts.sort((a, b) => (usadosT(b) > 0 && usadosT(b) < n()) - (usadosT(a) > 0 && usadosT(a) < n()));
-  const out = [];
-  for (const t of ts) {
-    if (k <= 0) break;
-    const rg = rangoT(t), nums = [];
-    for (let x = rg[0]; x <= rg[1] && k > 0; x++) if (!USO.set[t + ':' + x]) { nums.push(x); k--; }
-    if (nums.length) out.push({ t, nums });
-  }
-  return out;
-}
+// Talonarios que no constan entregados como taco (del 1 hacia arriba).
+function talonariosLibres() { const out = []; for (let t = 1; t <= NT(); t++) if (!USO.taco[t]) out.push(t); return out; }
 const txtTaco = t => `T${t['Talonario']} · ${t['Desde']}–${t['Hasta']}`;
 function pagado(r) {
   return (Number(r['Importe sueltas']) || 0) + (TAC[r['Código']] || []).reduce((a, t) => a + (Number(t['Importe liquidado']) || 0), 0);
@@ -455,7 +432,7 @@ function renderKpis() {
   const r = D.resumen, nn = n(), p = P();
   const act = D.reservas.filter(x => !inactiva(x));
   const sinRecoger = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0) + tPend(x) * nn, 0);
-  const libres = r.sueltasLibres + r.tacosLibres * nn;
+  const libres = r.libres;
   const plazo = dias(D.config.limiteLiq, D.hoy);
   const sumM = (arr, m) => arr.filter(x => (x['Medio'] || 'Efectivo') === m).reduce((a, x) => a + (Number(x['Importe']) || 0), 0);
   const k = (l, v, s, cls) => `<div class="kpi ${cls || ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || ''}</div></div>`;
@@ -502,7 +479,7 @@ function renderHoy() {
       const done = r['Sueltas entregadas'] !== '';
       return `<tr class="${done ? 'done' : ''}">
         <td>${done ? '<span class="chk on">✓</span>' : `<button class="chk" title="Marcar como recogido" data-act="suel" data-c="${esc(r['Código'])}"></button>`}</td>
-        <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span>${r['Día recogida'] !== hoy ? ` <span class="badge b-Parcial">otro día</span>` : ''}${done ? `<div class="mono" style="font-size:12px">${esc(r['Participaciones'])} · ${esc(r['Medio de pago'])}</div>` : ''}${r['Notas'] ? `<div class="muted" style="font-size:12px">📝 ${esc(r['Notas'])}</div>` : ''}</td>
+        <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span>${r['Día recogida'] !== hoy ? ` <span class="badge b-Parcial">otro día</span>` : ''}${done ? `<div class="mono" style="font-size:12px">${r['Participaciones'] ? esc(r['Participaciones']) + ' · ' : ''}${esc(r['Medio de pago'])}</div>` : ''}${r['Notas'] ? `<div class="muted" style="font-size:12px">📝 ${esc(r['Notas'])}</div>` : ''}</td>
         <td class="mono">${esc(r['Teléfono'])}</td>
         <td class="n">${done ? r['Sueltas entregadas'] : r['Sueltas']}</td>
         <td class="n">${eur((done ? r['Sueltas entregadas'] : r['Sueltas']) * P())}</td>
@@ -529,12 +506,12 @@ function renderHoy() {
         <td><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> <span class="muted mono">${esc(r['Código'])}</span></td>
         <td class="mono">${esc(r['Teléfono'])}</td>
         <td>${selTal('hin' + i, x.tal)}</td><td></td></tr>`;
-    }).join('') + '</table><p class="muted" style="font-size:12px">Se propone el siguiente talonario completo. Si das otro, cámbialo en el desplegable antes de marcar.</p>' : '<div class="empty">Nadie ha elegido recoger tacos hoy.</div>';
+    }).join('') + '</table><p class="muted" style="font-size:12px">Se propone el primer talonario que no consta como taco. Elige en el desplegable el que le das de verdad antes de marcar.</p>' : '<div class="empty">Nadie ha elegido recoger tacos hoy.</div>';
 }
 $('hQ').addEventListener('input', renderHoy);
 function selTal(id, def) {
   const ls = talonariosLibres();
-  if (!ls.length) return '<span class="red">No quedan talonarios completos</span>';
+  if (!ls.length) return '<span class="red">Todos los talonarios constan ya como taco</span>';
   return `<select class="numinp" id="${id}" style="width:auto">` + ls.map(t => `<option value="${t}" ${t === def ? 'selected' : ''}>Talonario ${t} (${rangoT(t)[0]}–${rangoT(t)[1]})</option>`).join('') + '</select>';
 }
 
@@ -695,8 +672,7 @@ function renderVentas() {
   const act = D.reservas.filter(x => !inactiva(x));
   const sRes = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0), 0);
   const tResN = act.reduce((a, x) => a + tPend(x), 0) * nn;
-  const total = c.sueltasDisp + c.tacosDisp * nn;
-  const libres = r.sueltasLibres + r.tacosLibres * nn;
+  const total = r.total, libres = r.libres;
   const filas = [
     ['Vendidas sueltas (cobradas)', r.sueltasEntregadas, '#1E7B3A'],
     ['Vendidas en tacos (liquidadas)', r.vendidasTacos, '#2E9B4F'],
@@ -710,9 +686,9 @@ function renderVentas() {
   const cuadre = filas.reduce((a, f) => a + f[1], 0);
   $('vPart').innerHTML = '<tr><th>Situación</th><th class="n">Participaciones</th><th class="n">Importe</th></tr>' +
     filas.map(f => `<tr><td><span style="display:inline-block;width:10px;height:10px;background:${f[2]};margin-right:6px"></span>${f[0]}</td><td class="n">${int(f[1])}</td><td class="n">${eur(f[1] * p)}</td></tr>`).join('') +
-    `<tfoot><tr><td>Total para vender (${int(c.sueltasDisp)} sueltas + ${c.tacosDisp} tacos × ${nn})</td><td class="n">${int(total)}</td><td class="n">${eur(total * p)}</td></tr></tfoot>` +
+    `<tfoot><tr><td>Total para vender (${NT()} talonarios × ${nn})</td><td class="n">${int(total)}</td><td class="n">${eur(total * p)}</td></tr></tfoot>` +
     (cuadre !== total ? `<tr><td colspan="3" class="red">Atención: la suma (${cuadre}) no cuadra con el total (${total}). Revisa la hoja.</td></tr>` : '') +
-    `<tr><td class="muted" colspan="3" style="font-size:12px">Las devueltas de los tacos (${int(r.devueltasTacos)}) vuelven a las sueltas libres.</td></tr>`;
+    `<tr><td class="muted" colspan="3" style="font-size:12px">Las devueltas de los tacos (${int(r.devueltasTacos)}) vuelven a las libres. Las sueltas no se apuntan por talonario: solo cuentan del total.</td></tr>`;
   const vend = r.sueltasEntregadas + r.vendidasTacos;
   $('vDinero').innerHTML = '<tr><th>Concepto</th><th class="n">Importe</th></tr>' +
     `<tr><td>Cobrado (caja)</td><td class="n"><b>${eur(r.totalCaja)}</b></td></tr>` +
@@ -733,13 +709,10 @@ function renderVentas() {
   let html = '';
   for (let t = 1; t <= NT(); t++) {
     const rg = rangoT(t), tk = USO.taco[t];
-    let vend = 0, fuera = 0;
-    for (let x = rg[0]; x <= rg[1]; x++) { const u = USO.set[t + ':' + x]; if (!u) continue; if (tk && u === tk['ID'] && tk['Estado'] === 'En depósito') fuera++; else vend++; }
-    const libre = n() - vend - fuera;
-    const quien = tk ? `Taco de ${esc(tk['Titular'])}${tk['Estado'] === 'Liquidado' ? ' (liquidado)' : ''}` : (vend ? 'Sueltas' : 'Libre');
-    html += `<div class="tal ${tk && tk['Estado'] === 'En depósito' ? 'taco' : ''} ${!vend && !fuera ? 'free' : ''}"><b>T${t}</b> <span class="muted">${rg[0]}–${rg[1]}</span>
-      <div class="bar2"><div style="width:${vend / n() * 100}%;background:#1E7B3A"></div><div style="width:${fuera / n() * 100}%;background:#1F4E9A"></div></div>
-      <div>${quien}</div><div class="muted">${vend} vendidas · ${libre} libres</div></div>`;
+    const quien = tk ? `Taco de ${esc(tk['Titular'])}` : 'En la oficina';
+    const est = tk ? (tk['Estado'] === 'Liquidado' ? `liquidado: ${tk['Vendidas']} vendidas, ${tk['Devueltas']} devueltas` : 'sin liquidar') : 'para sueltas o próximo taco';
+    html += `<div class="tal ${tk && tk['Estado'] === 'En depósito' ? 'taco' : ''} ${!tk ? 'free' : ''}"><b>T${t}</b> <span class="muted">${rg[0]}–${rg[1]}</span>
+      <div>${quien}</div><div class="muted">${est}</div></div>`;
   }
   $('vTal').innerHTML = html;
 }
@@ -793,47 +766,30 @@ const medioSel = () => (document.querySelector('input[name=dMedio]:checked') || 
 
 function dlgSueltas(c) {
   const r = getR(c), q = Number(r['Sueltas']);
-  const prop = proponerSueltas(q);
-  const fila = (g) => `<div class="grp"><select class="gT">${Array.from({ length: NT() }, (_, i) => i + 1).filter(t => !tacoFuera(t)).map(t => `<option value="${t}" ${g && g.t === t ? 'selected' : ''}>Talonario ${t}</option>`).join('')}</select>
-    <input class="gN" placeholder="p. ej. 1, 2, 3 o 1-3" value="${g ? fmtNums(g.nums) : ''}"><span class="muted gC"></span><button class="lnk gX" title="Quitar">✕</button></div>`;
   openDlg('Cobrar y entregar sueltas · ' + c,
     `<p style="font-size:16px;margin-top:0"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · tiene reservadas <b>${q}</b></p>
-     <label>¿Qué participaciones le das? (talonario y números)</label>
-     <div id="dGrupos">${(prop.length ? prop : [null]).map(fila).join('')}</div>
-     <button class="lnk" id="dAdd" style="margin-top:6px">+ otro talonario</button>
-     <p class="muted" style="font-size:12px">Te proponemos las siguientes libres. Si das otras, cámbialas.</p>
+     <div class="row2"><div><label>¿Cuántas se lleva?</label><input id="dCantIn" type="number" min="1" value="${q}"></div><div></div></div>
+     <p class="muted" style="font-size:12px">Dale las que quieras, de cualquier talonario que esté en la oficina. No hace falta apuntar los números.</p>
      ${medioHtml('Efectivo')}
      <p style="margin-top:12px">Se lleva <b id="dCant">0</b> · Cobrar: <span class="bigv" id="dImp">0 €</span></p>
      <div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Cobrado y entregado', cls: 'pri', fn: e => run(e.target, async () => {
-      const grupos = leerGrupos();
-      if (!grupos.length) throw new Error('Indica qué participaciones le das.');
-      const d = await api({ action: 'entregarSueltas', codigo: c, medio: medioSel(), grupos: grupos.map(g => ({ talonario: g.t, nums: fmtNums(g.nums) })) });
-      await tras('Cobrados ' + eur(d.importe) + ' (' + d.medio + ') a ' + r['Nombre'] + ' · ' + d.participaciones);
+      const k = Number($('dCantIn').value);
+      if (!(k >= 1)) throw new Error('Indica cuántas participaciones se lleva.');
+      const d = await api({ action: 'entregarSueltas', codigo: c, medio: medioSel(), cantidad: k });
+      await tras('Cobrados ' + eur(d.importe) + ' (' + d.medio + ') a ' + r['Nombre'] + ' · ' + d.cantidad + ' participaciones');
     }) }]);
-  const leerGrupos = () => [...document.querySelectorAll('#dGrupos .grp')].map(el => ({ t: +el.querySelector('.gT').value, nums: parseNums(el.querySelector('.gN').value) })).filter(g => g.nums.length);
   const upd = () => {
-    let tot = 0; $('dlgErr').textContent = '';
-    document.querySelectorAll('#dGrupos .grp').forEach(el => {
-      try {
-        const t = +el.querySelector('.gT').value, nums = parseNums(el.querySelector('.gN').value), rg = rangoT(t);
-        const mal = nums.find(x => x < rg[0] || x > rg[1]), usada = nums.find(x => USO.set[t + ':' + x]);
-        if (mal) $('dlgErr').textContent = `La ${mal} no es del talonario ${t} (${rg[0]}–${rg[1]}).`;
-        else if (usada) $('dlgErr').textContent = `La ${usada} del talonario ${t} ya está entregada.`;
-        el.querySelector('.gC').textContent = nums.length + ' part.'; tot += nums.length;
-      } catch (er) { $('dlgErr').textContent = er.message; }
-    });
+    const tot = Math.max(0, Math.floor(Number($('dCantIn').value) || 0));
     $('dCant').textContent = tot + (tot === 1 ? ' participación' : ' participaciones') + (tot !== q ? ` (reservó ${q})` : '');
     $('dImp').textContent = eur(tot * P());
   };
-  $('dGrupos').addEventListener('input', upd); $('dGrupos').addEventListener('change', upd);
-  $('dGrupos').addEventListener('click', ev => { if (ev.target.classList.contains('gX')) { ev.target.closest('.grp').remove(); upd(); } });
-  $('dAdd').addEventListener('click', () => { $('dGrupos').insertAdjacentHTML('beforeend', fila(null)); upd(); });
-  upd();
+  $('dCantIn').addEventListener('input', upd);
+  upd(); $('dCantIn').focus(); $('dCantIn').select();
 }
 function dlgTaco(c, tal) {
   const r = getR(c);
-  if (!(tal >= 1)) return toast('No quedan talonarios completos libres.');
+  if (!(tal >= 1)) return toast('Todos los talonarios constan ya entregados como taco.');
   const rg = rangoT(tal);
   openDlg('Entregar taco · ' + c,
     `<p style="font-size:16px;margin-top:0"><b>${esc(r['Nombre'])} ${esc(r['Apellidos'])}</b> · ${esc(r['Teléfono'])}</p>
@@ -850,29 +806,27 @@ function dlgLiq(id) {
   const t = getT(id), m = Number(t['Participaciones']);
   openDlg('Liquidar taco ' + id,
     `<p style="font-size:16px;margin-top:0"><b>${esc(t['Titular'])}</b> · <span class="mono">${txtTaco(t)}</span></p>
-     <label>¿Qué participaciones devuelve sin vender? (déjalo vacío si las ha vendido todas)</label>
-     <input id="dDev" placeholder="p. ej. ${t['Desde']}, ${+t['Desde'] + 1} o ${+t['Hasta'] - 4}-${t['Hasta']}">
+     <div class="row2"><div><label>¿Cuántas devuelve sin vender?</label><input id="dDev" type="number" min="0" max="${m}" value="0"></div><div></div></div>
      <p>Devuelve <b id="dNDev">0</b> · Vendidas <b id="dVend">${m}</b> · Cobrar: <span class="bigv" id="dImp">${eur(m * P())}</span></p>
      <div id="dMedioBox">${medioHtml('Efectivo')}</div>
-     <div class="note">Comprueba que los números que escribes son los que te devuelve y guárdalas aparte: vuelven a estar a la venta.</div>
+     <div class="note">Cuenta las que te devuelve y guárdalas con las de la oficina: vuelven a estar a la venta.</div>
      <label>Notas (opcional)</label><input id="dNotas">
      <div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Cobrado y liquidado', cls: 'pri', fn: e => run(e.target, async () => {
-      const dev = parseNums($('dDev').value);
-      const d = await api({ action: 'liquidarTaco', id: id, devueltos: fmtNums(dev), medio: medioSel(), notas: $('dNotas').value });
+      const dv = Number($('dDev').value || 0);
+      if (!(dv >= 0 && dv <= m && dv === Math.floor(dv))) throw new Error('Las devueltas tienen que estar entre 0 y ' + m + '.');
+      const d = await api({ action: 'liquidarTaco', id: id, devueltas: dv, medio: medioSel(), notas: $('dNotas').value });
       await tras('Taco ' + id + ' liquidado: ' + eur(d.importe));
     }) }]);
   $('dDev').addEventListener('input', () => {
     $('dlgErr').textContent = '';
-    try {
-      const dev = parseNums($('dDev').value), mal = dev.find(x => x < +t['Desde'] || x > +t['Hasta']);
-      if (mal) $('dlgErr').textContent = `La ${mal} no es de este taco (${t['Desde']}–${t['Hasta']}).`;
-      const v = m - dev.length;
-      $('dNDev').textContent = dev.length; $('dVend').textContent = v; $('dImp').textContent = eur(v * P());
-      $('dMedioBox').hidden = v === 0;
-    } catch (er) { $('dlgErr').textContent = er.message; }
+    const dv = Math.max(0, Math.floor(Number($('dDev').value) || 0));
+    if (dv > m) $('dlgErr').textContent = `Un taco tiene ${m} participaciones.`;
+    const v = Math.max(0, m - dv);
+    $('dNDev').textContent = dv; $('dVend').textContent = v; $('dImp').textContent = eur(v * P());
+    $('dMedioBox').hidden = v === 0;
   });
-  $('dDev').focus();
+  $('dDev').focus(); $('dDev').select();
 }
 function confirmar(title, html, okText, fn) {
   openDlg(title, html + '<div class="err" id="dlgErr"></div>', [cancelBtn, { text: okText, cls: 'dark', fn: e => run(e.target, fn) }]);
@@ -884,51 +838,25 @@ function verFicha(c) {
 /* Venta en la mesa sin reserva: un solo paso */
 function dlgVenta() {
   fichaAbierta = null;
-  const fila = (g) => `<div class="grp"><select class="gT">${Array.from({ length: NT() }, (_, i) => i + 1).filter(t => !tacoFuera(t)).map(t => `<option value="${t}" ${g && g.t === t ? 'selected' : ''}>Talonario ${t}</option>`).join('')}</select>
-    <input class="gN" placeholder="p. ej. 1, 2, 3 o 1-3" value="${g ? fmtNums(g.nums) : ''}"><span class="muted gC"></span><button class="lnk gX" title="Quitar">✕</button></div>`;
   openDlg('Venta directa',
     `<p class="muted" style="margin-top:0">Solo participaciones sueltas. Para un taco, usa <b>+ Reserva</b>.</p>
-     <div id="vS">
-       <div class="row2"><div><label>¿Cuántas?</label><input id="vCant" type="number" min="1" value="1"></div><div></div></div>
-       <label>Participaciones que le das (talonario y números)</label>
-       <div id="dGrupos"></div>
-       <button class="lnk" id="dAdd" style="margin-top:6px">+ otro talonario</button>
-       ${medioHtml('Efectivo')}
-       <p style="margin-top:12px">Se lleva <b id="dCant">0</b> · Cobrar: <span class="bigv" id="dImp">0 €</span></p>
-     </div>
+     <div class="row2"><div><label>¿Cuántas?</label><input id="vCant" type="number" min="1" value="1"></div><div></div></div>
+     ${medioHtml('Efectivo')}
+     <p style="margin-top:12px">Cobrar: <span class="bigv" id="dImp">0 €</span></p>
      <label>Comprador <span class="muted" style="font-weight:400">(opcional)</span></label>
      <div class="row2"><div><input id="vNombre" placeholder="Nombre"></div><div><input id="vApellidos" placeholder="Apellidos"></div></div>
      <div class="row2" style="margin-top:8px"><div><input id="vTel" inputmode="tel" placeholder="Teléfono"></div><div><input id="vEmail" type="email" placeholder="Email (opcional)"></div></div>
      <div class="err" id="dlgErr"></div>`,
     [cancelBtn, { text: 'Vendido', cls: 'pri', fn: e => run(e.target, async () => {
-      const g = leerGrupos();
-      if (!g.length) throw new Error('Indica qué participaciones le das.');
+      const k = Number($('vCant').value);
+      if (!(k >= 1)) throw new Error('Indica cuántas participaciones vendes.');
       const d = await api({ action: 'ventaDirecta', nombre: $('vNombre').value, apellidos: $('vApellidos').value, telefono: $('vTel').value, email: $('vEmail').value,
-        medio: medioSel(), grupos: g.map(x => ({ talonario: x.t, nums: fmtNums(x.nums) })) });
-      await tras(`Venta ${d.codigo}: ${eur(d.importe)} (${d.medio}) · ${d.participaciones}`);
+        medio: medioSel(), cantidad: k });
+      await tras(`Venta ${d.codigo}: ${d.cantidad} participaciones · ${eur(d.importe)} (${d.medio})`);
     }) }]);
-  const leerGrupos = () => [...document.querySelectorAll('#dGrupos .grp')].map(el => ({ t: +el.querySelector('.gT').value, nums: parseNums(el.querySelector('.gN').value) })).filter(g => g.nums.length);
-  const upd = () => {
-    let tot = 0; $('dlgErr').textContent = '';
-    document.querySelectorAll('#dGrupos .grp').forEach(el => {
-      try {
-        const t = +el.querySelector('.gT').value, nums = parseNums(el.querySelector('.gN').value), rg = rangoT(t);
-        const mal = nums.find(x => x < rg[0] || x > rg[1]), usada = nums.find(x => USO.set[t + ':' + x]);
-        if (mal) $('dlgErr').textContent = `La ${mal} no es del talonario ${t} (${rg[0]}–${rg[1]}).`;
-        else if (usada) $('dlgErr').textContent = `La ${usada} del talonario ${t} ya está entregada.`;
-        el.querySelector('.gC').textContent = nums.length + ' part.'; tot += nums.length;
-      } catch (er) { $('dlgErr').textContent = er.message; }
-    });
-    $('dCant').textContent = tot + (tot === 1 ? ' participación' : ' participaciones');
-    $('dImp').textContent = eur(tot * P());
-  };
-  const proponer = () => { const k = Math.max(1, Number($('vCant').value) || 1); const pr = proponerSueltas(k); $('dGrupos').innerHTML = (pr.length ? pr : [null]).map(fila).join(''); upd(); };
-  $('vCant').addEventListener('input', proponer);
-  $('dGrupos').addEventListener('input', upd); $('dGrupos').addEventListener('change', upd);
-  $('dGrupos').addEventListener('click', ev => { if (ev.target.classList.contains('gX')) { ev.target.closest('.grp').remove(); upd(); } });
-  $('dAdd').addEventListener('click', () => { $('dGrupos').insertAdjacentHTML('beforeend', fila(null)); upd(); });
-  proponer();
-  $('vCant').focus(); $('vCant').select();
+  const upd = () => { const k = Math.max(0, Math.floor(Number($('vCant').value) || 0)); $('dImp').textContent = eur(k * P()); };
+  $('vCant').addEventListener('input', upd);
+  upd(); $('vCant').focus(); $('vCant').select();
 }
 
 function dlgNueva() {
@@ -964,7 +892,7 @@ document.addEventListener('click', async e => {
     case 'suel': return dlgSueltas(c);
     case 'taco': return dlgTaco(c, $(b.dataset.inp) ? Number($(b.dataset.inp).value) : 0);
     case 'liq': return dlgLiq(id);
-    case 'dsuel': return confirmar('Deshacer recogida · ' + c, `<p>Se anula la recogida de las sueltas de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b> (${esc(getR(c)['Participaciones'])}) y se restan <b>${eur(getR(c)['Importe sueltas'])}</b> (${esc(getR(c)['Medio de pago'])}). Devuélvele el dinero y recoge las participaciones.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerSueltas', codigo: c }); await tras('Recogida deshecha'); });
+    case 'dsuel': return confirmar('Deshacer recogida · ' + c, `<p>Se anula la recogida de las sueltas de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b> (${esc(getR(c)['Sueltas entregadas'])} participaciones) y se restan <b>${eur(getR(c)['Importe sueltas'])}</b> (${esc(getR(c)['Medio de pago'])}). Devuélvele el dinero y recoge las participaciones.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerSueltas', codigo: c }); await tras('Recogida deshecha'); });
     case 'dtaco': return confirmar('Deshacer entrega · ' + id, `<p>Se anula la entrega del taco <b>${esc(id)}</b> (talonario ${getT(id)['Talonario']}). Recoge el talonario.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerTaco', id: id }); await tras('Entrega deshecha'); });
     case 'dliq': return confirmar('Deshacer liquidación · ' + id, `<p>El taco <b>${esc(id)}</b> vuelve a quedar sin liquidar y se restan <b>${eur(getT(id)['Importe liquidado'])}</b> de la caja.</p>`, 'Deshacer', async () => { await api({ action: 'deshacerLiquidacion', id: id }); await tras('Liquidación deshecha'); });
     case 'nota': return openDlg('Nota · ' + c, `<label>Nota</label><textarea id="dNota" rows="3"></textarea><div class="err" id="dlgErr"></div>`,
@@ -1005,8 +933,7 @@ async function excel() {
   const act = D.reservas.filter(x => !inactiva(x));
   const sRes = act.reduce((a, x) => a + (sPend(x) ? Number(x['Sueltas']) : 0), 0);
   const tResN = act.reduce((a, x) => a + tPend(x), 0) * nn;
-  const total = c.sueltasDisp + c.tacosDisp * nn;
-  const libres = r.sueltasLibres + r.tacosLibres * nn;
+  const total = r.total, libres = r.libres;
   const tc = D.cierres.reduce((a, x) => a + (Number(x['Contado']) || 0), 0);
   const td = D.cierres.reduce((a, x) => a + (Number(x['Diferencia']) || 0), 0);
   const res = [
@@ -1029,7 +956,7 @@ async function excel() {
     ['Efectivo contado en cierres de caja', '', tc], ['Diferencias en cierres', '', td], ['Efectivo sin cerrar ahora mismo', '', D.pendiente.total],
     ['Desglose de lo vendido: juega', '', r.jugadoEstimado], ['Desglose de lo vendido: donativo para el club', '', r.donativoEstimado],
     [], ['TACOS', 'Cantidad', ''],
-    ['Ofrecidos', c.tacosDisp, ''], ['Entregados', r.tacosEntregados, ''], ['Sin liquidar', r.tacosEnDeposito, ''], ['Fuera de plazo', r.tacosVencidos, ''], ['Liquidados', r.tacosLiquidados, ''], ['Participaciones devueltas', r.devueltasTacos, '']
+    ['Talonarios', NT(), ''], ['Entregados', r.tacosEntregados, ''], ['Sin liquidar', r.tacosEnDeposito, ''], ['Fuera de plazo', r.tacosVencidos, ''], ['Liquidados', r.tacosLiquidados, ''], ['Participaciones devueltas', r.devueltasTacos, '']
   ];
   const wsR = XLSX.utils.aoa_to_sheet(res); wsR['!cols'] = [{ wch: 46 }, { wch: 14 }, { wch: 14 }];
   const wb = XLSX.utils.book_new();
