@@ -66,6 +66,8 @@
   .cerrado { font-weight:600; }
   footer { color:var(--muted); font-size:13px; padding:28px 0 40px; }
   .stock { font-size:13px; color:var(--muted); }
+  .agotado { display:inline-block; background:#E2552D; color:#fff; font-family:Anton, sans-serif; font-size:22px; text-transform:uppercase; letter-spacing:.04em; padding:4px 14px; margin:0 0 12px; transform:rotate(-2deg); }
+  .espera { font-family:'Space Mono', monospace; font-weight:700; }
   [hidden] { display:none !important; }
 </style>
 <script src="config.js"></script>
@@ -75,15 +77,16 @@
   <div class="wrap">
     <div class="brandrow"><span class="escudo"><img src="https://torrelodonesrugby.com/wp-content/uploads/2023/04/TRC.png" alt="Escudo del Torrelodones Rugby Club" onerror="this.parentNode.remove()"></span><div class="club">Torrelodones Rugby Club</div></div>
     <h1>Lotería de Navidad 2026</h1>
+    <div class="agotado" id="agotado" hidden>Agotada</div>
     <img class="part" id="partImg" src="participacion.jpg" width="1600" height="720" alt="Participación de Lotería de Navidad del Torrelodones Rugby Club" onerror="this.remove();document.getElementById('nums').hidden=false">
     <div class="nums" id="nums" hidden></div>
     <div class="precio" id="precio">Cargando…</div>
-    <a class="cta" href="#formSec">Reservar ahora</a>
+    <a class="cta" id="cta" href="#formSec">Reservar ahora</a>
   </div>
 </header>
 
 <main class="wrap">
-  <section>
+  <section id="comoSec">
     <h2>Cómo funciona</h2>
     <ol class="pasos">
       <li><b>Reserva aquí</b> y elige el <span class="t-horario">martes o jueves</span> en que vas a recoger. Sin reserva no hay lotería.</li>
@@ -132,14 +135,51 @@
     </div>
   </section>
 
+  <section id="preComo" hidden>
+    <h2>Se ha agotado. ¿Y ahora?</h2>
+    <ol class="pasos">
+      <li><b>Hemos vendido el 100 % del <span class="t-numeros">número</span>.</b> Gracias: este año nos hemos superado.</li>
+      <li><b>Estamos intentando conseguir más participaciones</b> con la Administración de Loterías. Todavía no hay nada confirmado.</li>
+      <li><b>Haz tu pre-reserva aquí.</b> Si llegan, os avisaremos por WhatsApp <b>por orden de lista</b> para recogerla y pagarla en <span class="t-lugar">el club</span>.</li>
+    </ol>
+    <div class="aviso"><b>La pre-reserva no garantiza la participación.</b> Pero si conseguimos más, contamos con tu reserva para repartirlas: apúntate solo si de verdad vas a pasar a recogerla.</div>
+  </section>
+
+  <section id="preSec" hidden>
+    <h2>Tu pre-reserva</h2>
+    <div class="card">
+      <p class="stock" id="enEspera" hidden></p>
+      <form id="fp" novalidate>
+        <div class="row2">
+          <div><label for="pNombre">Nombre</label><input id="pNombre" type="text" autocomplete="given-name" required maxlength="60"></div>
+          <div><label for="pApellidos">Apellidos</label><input id="pApellidos" type="text" autocomplete="family-name" required maxlength="80"></div>
+        </div>
+        <div class="row2">
+          <div><label for="pTelefono">Teléfono móvil <span class="opt">(te avisamos por aquí)</span></label><input id="pTelefono" type="tel" inputmode="tel" autocomplete="tel" required></div>
+          <div><label for="pEmail">Email <span class="opt">(opcional)</span></label><input id="pEmail" type="email" autocomplete="email"></div>
+        </div>
+        <div class="qty">
+          <div class="t">Participaciones<small id="pInfo"></small></div>
+          <div class="step"><button type="button" data-p="-1" aria-label="Menos">−</button><output id="pCant">1</output><button type="button" data-p="1" aria-label="Más">+</button></div>
+        </div>
+        <div class="total" id="pTotal"></div>
+        <label class="check"><input type="checkbox" id="pCompromiso"> <span><b>Me comprometo a recogerla y pagarla</b> si el club consigue más participaciones y me avisa. Sé que la pre-reserva no la garantiza.</span></label>
+        <label class="check"><input type="checkbox" id="pAcepta"> <span>Acepto que el club guarde mis datos solo para gestionar esta lista de espera. Puedo pedir que se borren escribiendo a <span class="t-contacto"></span>.</span></label>
+        <input class="hp" type="text" id="pWeb" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="go" id="pGo" type="submit">Hacer mi pre-reserva</button>
+        <div class="err" id="pErr" role="alert"></div>
+      </form>
+    </div>
+  </section>
+
   <section id="okSec" hidden>
     <div class="card ok-box">
-      <h2>Reserva hecha</h2>
+      <h2 id="okTit">Reserva hecha</h2>
       <div>Tu código</div>
       <div class="codigo" id="okCodigo"></div>
       <ul id="okLista"></ul>
       <p>Haz una captura de esta pantalla. Si dejaste tu email, te llegará la confirmación.</p>
-      <button class="go" type="button" onclick="location.reload()">Hacer otra reserva</button>
+      <button class="go" type="button" id="okOtra" onclick="location.reload()">Hacer otra reserva</button>
     </div>
   </section>
 </main>
@@ -220,6 +260,7 @@ async function init() {
   setText('t-lugar', C.lugar);
   setText('t-limite', C.limiteLiqEtiqueta.toLowerCase());
   setText('t-contacto', C.contacto);
+  if (C.prerreserva) return initPre();
   $('sueltasInfo').textContent = C.sueltasLibres > 0
     ? `${eur(C.precio)} cada una · máximo ${C.topeSueltas} por familia`
     : 'Agotadas';
@@ -272,6 +313,59 @@ $('f').addEventListener('submit', async ev => {
   } catch (e) {
     $('err').textContent = e.message || 'No se ha podido enviar. Inténtalo de nuevo.';
     $('go').disabled = false; $('go').textContent = 'Reservar';
+  }
+});
+
+/* ===== Modo pre-reserva (lotería agotada) ===== */
+let pq = 1;
+function renderPre() {
+  const tope = C.topeSueltas || 20;
+  $('pCant').textContent = pq;
+  document.querySelector('[data-p="-1"]').disabled = pq <= 1;
+  document.querySelector('[data-p="1"]').disabled = pq >= tope;
+  $('pTotal').innerHTML = `Si llegan, pagarás <b>${eur(pq * C.precio)}</b> al recogerlas (mejor en efectivo; también hay datáfono).`;
+}
+function initPre() {
+  ['comoSec', 'formSec'].forEach(id => $(id).hidden = true);
+  ['preComo', 'preSec', 'agotado'].forEach(id => $(id).hidden = false);
+  $('cta').textContent = 'Haz tu pre-reserva'; $('cta').href = '#preSec';
+  setText('t-numeros', C.numeros.join(' y '));
+  $('pInfo').textContent = `${eur(C.precio)} cada una · máximo ${C.topeSueltas || 20} por familia`;
+  if (C.enEspera >= 5) { $('enEspera').hidden = false; $('enEspera').innerHTML = `Ya hay <span class="espera">${C.enEspera}</span> personas en la lista de espera.`; }
+  document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => {
+    pq = Math.max(1, Math.min(C.topeSueltas || 20, pq + Number(b.dataset.p))); renderPre();
+  }));
+  renderPre();
+}
+$('fp').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  $('pErr').textContent = '';
+  const body = {
+    action: 'prerreservar',
+    nombre: $('pNombre').value, apellidos: $('pApellidos').value,
+    telefono: $('pTelefono').value, email: $('pEmail').value,
+    participaciones: pq, compromiso: $('pCompromiso').checked, acepta: $('pAcepta').checked, web: $('pWeb').value
+  };
+  if (!body.nombre.trim() || !body.apellidos.trim()) return $('pErr').textContent = 'Faltan el nombre o los apellidos.';
+  if (body.telefono.replace(/\D/g, '').length < 9) return $('pErr').textContent = 'Revisa el teléfono.';
+  if (!body.compromiso) return $('pErr').textContent = 'Marca el compromiso de recogerla si conseguimos más.';
+  if (!body.acepta) return $('pErr').textContent = 'Tienes que aceptar el uso de tus datos.';
+  $('pGo').disabled = true; $('pGo').textContent = 'Enviando…';
+  try {
+    const r = await api(body);
+    if (!r.ok) throw new Error(r.error);
+    const d = r.data;
+    $('okTit').textContent = 'Estás en la lista';
+    $('okCodigo').textContent = d.codigo;
+    $('okLista').innerHTML = `<li>Eres el <b>nº ${d.posicion}</b> de la lista de espera.</li>` +
+      `<li>${d.participaciones} ${d.participaciones === 1 ? 'participación' : 'participaciones'} (${eur(d.importe)} si llegan).</li>` +
+      `<li>Si conseguimos más, te avisamos por WhatsApp para que pases a recogerla. <b>Contamos contigo.</b></li>`;
+    $('okOtra').textContent = 'Volver';
+    $('preComo').hidden = true; $('preSec').hidden = true; $('okSec').hidden = false;
+    window.scrollTo(0, 0);
+  } catch (e) {
+    $('pErr').textContent = e.message || 'No se ha podido enviar. Inténtalo de nuevo.';
+    $('pGo').disabled = false; $('pGo').textContent = 'Hacer mi pre-reserva';
   }
 });
 
