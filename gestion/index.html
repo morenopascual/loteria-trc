@@ -158,6 +158,7 @@
     <span class="who" id="who"></span>
     <button class="tb y" data-act="venta">€ Venta directa</button>
     <button class="tb" data-act="nueva">+ Reserva</button>
+    <button class="tb" data-act="hojas">Hojas a mano</button>
     <button class="tb" data-act="excel">Excel de cuentas</button>
     <button class="tb" data-act="reload">Actualizar</button>
     <button class="tb" data-act="salir">Salir</button>
@@ -170,6 +171,7 @@
       <button data-tab="compradores">Compradores</button>
       <button data-tab="tacos">Tacos <span class="n" id="badgeTacos"></span></button>
       <button data-tab="novinieron">No vinieron <span class="n red" id="nNoVin"></span></button>
+      <button data-tab="espera">Lista de espera <span class="n" id="nEspera"></span></button>
       <button data-tab="ventas">Ventas</button>
       <button data-tab="caja">Caja</button>
       <button data-tab="registro">Registro</button>
@@ -230,6 +232,37 @@
     <section class="tab" id="t-novinieron" hidden>
       <p id="nInfo" style="margin:0 0 10px"></p>
       <table class="tbl" id="nTbl"></table>
+    </section>
+
+    <!-- LISTA DE ESPERA -->
+    <section class="tab" id="t-espera" hidden>
+      <div class="bar">
+        <div id="eModo"></div>
+        <span class="sp"></span>
+        <button class="btn" data-act="modo" id="eModoBtn"></button>
+      </div>
+
+      <h2>Reservas por recoger <small id="eRCount"></small></h2>
+      <p class="muted" style="margin:0 0 10px">Reservas en vigor con algo sin recoger. Se respetan: mándales el WhatsApp para que lo sepan y vengan. Las que pasan el plazo se liberan solas y desaparecen de aquí.</p>
+      <div class="bar" style="margin-bottom:8px">
+        <span class="sp"></span>
+        <button class="btn" data-act="eCopiarTelR">Copiar teléfonos</button>
+      </div>
+      <table class="tbl" id="eRTbl"></table>
+
+      <h2 style="margin-top:28px">Pre-reservas <small id="ePCount"></small></h2>
+      <p class="muted" style="margin:0 0 10px">Lista de espera de la web, por orden de llegada. No cuentan en las ventas. Cuando lleguen más talonarios, sube <b>NUM_TALONARIOS</b> en la pestaña Config de la hoja y pásalas a reserva por orden.</p>
+      <div class="bar" style="margin-bottom:8px">
+        <select id="eF">
+          <option value="espera">En espera y avisadas</option>
+          <option value="pasada">Pasadas a reserva</option>
+          <option value="anulada">Anuladas</option>
+          <option value="all">Todas</option>
+        </select>
+        <span class="sp"></span>
+        <button class="btn" data-act="eCopiarTelP">Copiar teléfonos en espera</button>
+      </div>
+      <table class="tbl" id="ePTbl"></table>
     </section>
 
     <!-- VENTAS -->
@@ -455,7 +488,7 @@ $('tabs').addEventListener('click', e => {
   document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('section.tab').forEach(s => s.hidden = s.id !== 't-' + tab);
 });
-function renderAll() { document.querySelector('.top .brand').innerHTML = 'Lotería <span>TRC</span> · ' + esc(D.config.numeros.join(' · ')); renderKpis(); renderHoy(); renderCompradores(); renderTacos(); renderNoVin(); renderVentas(); renderCaja(); renderRegistro(); }
+function renderAll() { document.querySelector('.top .brand').innerHTML = 'Lotería <span>TRC</span> · ' + esc(D.config.numeros.join(' · ')); renderKpis(); renderHoy(); renderCompradores(); renderTacos(); renderNoVin(); renderEspera(); renderVentas(); renderCaja(); renderRegistro(); }
 
 /* ===== HOY ===== */
 function renderHoy() {
@@ -664,6 +697,168 @@ function renderNoVin() {
     { h: 'Se libera', k: 'lib', sv: r => r['Día recogida'], f: r => dl > 0 ? (() => { const x = dias(addD(r['Día recogida'], dl), D.hoy); return x <= 0 ? '<span class="red">hoy</span>' : `en ${x} días (${fecha(addD(r['Día recogida'], dl + 1))})`; })() : '–' },
     { h: '', f: r => `<a class="wa" target="_blank" rel="noopener" href="${waLink(r['Teléfono'], msgNoVino(r))}">WhatsApp</a> <button class="btn sm" data-act="ficha" data-c="${esc(r['Código'])}">Ficha</button>` }
   ], list);
+}
+
+/* ===== LISTA DE ESPERA ===== */
+const faltaTxt = r => [sPend(r) ? pl(Number(r['Sueltas']), 'participación', 'participaciones') : '', tPend(r) ? tPend(r) + (tPend(r) > 1 ? ' tacos' : ' taco') : ''].filter(Boolean).join(' y ');
+const limiteR = r => D.config.diasLiberar > 0 && r['Día recogida'] ? addD(r['Día recogida'], D.config.diasLiberar) : '';
+const conTel = r => /^[6789]\d{8}$/.test(String(r['Teléfono']).replace(/\D/g, '').slice(-9));
+const porRecoger = () => D.reservas.filter(r => pendiente(r) && conTel(r));
+const preEspera = x => x['Estado'] === 'En espera' || x['Estado'] === 'Avisado';
+function msgGarantia(r) {
+  const lim = limiteR(r), futuro = r['Día recogida'] >= D.hoy;
+  const cuando = futuro
+    ? `Te esperamos el ${String(r.diaEtiqueta).toLowerCase()}`
+    : `Pásate a recogerla el próximo martes o jueves`;
+  return `Hola, ${r['Nombre']}. Como habrás visto, la lotería del ${D.config.numeros.join(' y ')} se ha agotado. Tu reserva está guardada: ${r['Código']}, ${faltaTxt(r)}. ` +
+    `${cuando}, de 18:00 a 20:00, en la oficina del club.` +
+    (lim ? ` Si no puedes pasar antes del ${fechaL(lim)}, avísanos: después tendríamos que dársela a la lista de espera.` : '') + ` ¡Gracias!`;
+}
+function msgLlegaron(x) {
+  return `Hola, ${x['Nombre']}. ¡Buenas noticias! Han llegado más participaciones de la lotería del ${D.config.numeros.join(' y ')} y te toca: tienes ${pl(Number(x['Participaciones']), 'participación', 'participaciones')} guardadas (pre-reserva ${x['Código']}). ` +
+    `Puedes recogerlas y pagarlas martes o jueves de 18:00 a 20:00 en la oficina del club. Contestamos aquí si tienes dudas. ¡Gracias!`;
+}
+function renderEspera() {
+  const on = !!D.prerreserva;
+  $('eModo').innerHTML = `Web pública: <b class="${on ? 'red' : ''}">${on ? 'PRE-RESERVAS (lista de espera)' : 'VENTA NORMAL'}</b>`;
+  $('eModoBtn').textContent = on ? 'Volver a venta normal' : 'Abrir pre-reservas';
+  $('eModoBtn').className = 'btn ' + (on ? '' : 'dark');
+
+  const rl = porRecoger();
+  if (!sortState.eRTbl) rl.sort((a, b) => String(a['Día recogida']).localeCompare(b['Día recogida']) || String(a['Apellidos']).localeCompare(b['Apellidos'], 'es'));
+  $('eRCount').textContent = `${pl(rl.length, 'reserva', 'reservas')} · ${int(rl.reduce((a, r) => a + (sPend(r) ? Number(r['Sueltas']) : 0), 0))} sueltas y ${pl(rl.reduce((a, r) => a + tPend(r), 0), 'taco', 'tacos')}`;
+  tabla('eRTbl', [
+    { h: 'Código', k: 'Código', f: r => `<span class="mono">${esc(r['Código'])}</span>` },
+    { h: 'Nombre', k: 'Apellidos', f: r => `<b>${esc(r['Apellidos'])}, ${esc(r['Nombre'])}</b>` },
+    { h: 'Teléfono', k: 'Teléfono', f: r => `<span class="mono">${esc(r['Teléfono'])}</span>` },
+    { h: 'Día elegido', k: 'Día recogida', f: r => diaCorto(r['Día recogida']) + (r['Día recogida'] < D.hoy ? ' <span class="badge b-Parcial">no vino</span>' : '') },
+    { h: 'Le falta', f: faltaTxt },
+    { h: 'Último día', k: 'lim', sv: limiteR, f: r => limiteR(r) ? diaCorto(limiteR(r)) : '–' },
+    { h: '', f: r => `<a class="wa" target="_blank" rel="noopener" href="${waLink(r['Teléfono'], msgGarantia(r))}">WhatsApp</a> <button class="btn sm" data-act="ficha" data-c="${esc(r['Código'])}">Ficha</button>` }
+  ], rl);
+
+  const all = (D.prerreservas || []).slice().sort((a, b) => String(a['Alta']).localeCompare(String(b['Alta'])) || String(a['Código']).localeCompare(String(b['Código'])));
+  const pos = {}; all.filter(preEspera).forEach((x, i) => pos[x['Código']] = i + 1);
+  const esp = all.filter(preEspera);
+  $('ePCount').textContent = `${pl(esp.length, 'persona', 'personas')} en espera · ${int(esp.reduce((a, x) => a + (Number(x['Participaciones']) || 0), 0))} participaciones`;
+  $('nEspera').textContent = esp.length || ''; $('nEspera').hidden = !esp.length;
+  const f = $('eF').value;
+  const list = all.filter(x => f === 'all' || (f === 'espera' && preEspera(x)) || (f === 'pasada' && x['Estado'] === 'Pasada a reserva') || (f === 'anulada' && x['Estado'] === 'Anulada'));
+  tabla('ePTbl', [
+    { h: 'Nº', n: 1, k: 'pos', sv: x => pos[x['Código']] || 9999, f: x => pos[x['Código']] || '–' },
+    { h: 'Código', k: 'Código', f: x => `<span class="mono">${esc(x['Código'])}</span>` },
+    { h: 'Alta', k: 'Alta', f: x => esc(fecha(x['Alta']) + ' ' + String(x['Alta']).slice(11, 16)) },
+    { h: 'Nombre', k: 'Apellidos', f: x => `<b>${esc(x['Apellidos'])}, ${esc(x['Nombre'])}</b>${x['Email'] ? `<div class="muted" style="font-size:12px">${esc(x['Email'])}</div>` : ''}` },
+    { h: 'Teléfono', k: 'Teléfono', f: x => `<span class="mono">${esc(x['Teléfono'])}</span>` },
+    { h: 'Part.', n: 1, k: 'Participaciones', sv: x => Number(x['Participaciones']) || 0, f: x => int(x['Participaciones']) },
+    { h: 'Estado', k: 'Estado', f: x => esc(x['Estado']) + (x['Reserva'] ? ` <span class="mono">${esc(x['Reserva'])}</span>` : '') },
+    { h: '', f: x => preEspera(x)
+        ? `<button class="btn pri sm" data-act="ePasar" data-c="${esc(x['Código'])}">Pasar a reserva</button> <a class="wa" target="_blank" rel="noopener" href="${waLink(x['Teléfono'], msgLlegaron(x))}">WhatsApp</a> ` +
+          (x['Estado'] === 'En espera' ? `<button class="lnk" data-act="eEstado" data-est="Avisado" data-c="${esc(x['Código'])}">avisado</button> ` : `<button class="lnk" data-act="eEstado" data-est="En espera" data-c="${esc(x['Código'])}">quitar avisado</button> `) +
+          `<button class="lnk" data-act="eEstado" data-est="Anulada" data-c="${esc(x['Código'])}">anular</button>`
+        : (x['Estado'] === 'Anulada' ? `<button class="lnk" data-act="eEstado" data-est="En espera" data-c="${esc(x['Código'])}">recuperar</button>` : '') }
+  ], list);
+}
+$('eF').addEventListener('input', renderEspera);
+function getP(c) { return (D.prerreservas || []).find(x => x['Código'] === c); }
+function dlgPasar(c) {
+  const x = getP(c);
+  const ds = `<option value="${D.hoy}">Hoy (${fechaL(D.hoy)})</option>` + D.dias.filter(d => d.fecha !== D.hoy).map(d => `<option value="${d.fecha}">${esc(d.etiqueta)}</option>`).join('');
+  openDlg('Pasar a reserva · ' + c,
+    `<p style="font-size:16px;margin-top:0"><b>${esc(x['Nombre'])} ${esc(x['Apellidos'])}</b> · ${esc(x['Teléfono'])}</p>
+     <p class="muted">Crea una reserva normal que ya cuenta en las ventas. Solo funciona si quedan participaciones libres (ahora: <b>${int(D.resumen.libres)}</b>).</p>
+     <div class="row2"><div><label>Participaciones</label><input id="pPart" type="number" min="1" value="${Number(x['Participaciones']) || 1}"></div><div><label>Día de recogida</label><select id="pDia">${ds}</select></div></div>
+     <div class="err" id="dlgErr"></div>`,
+    [cancelBtn, { text: 'Crear reserva', cls: 'pri', fn: e => run(e.target, async () => {
+      const d = await api({ action: 'convertirPrerreserva', codigo: c, participaciones: Number($('pPart').value) || 0, dia: $('pDia').value });
+      await tras(c + ' pasada a la reserva ' + d.codigo);
+    }) }]);
+}
+
+/* ===== HOJAS A MANO: pasar al sistema lo apuntado en papel ===== */
+// Formato de cada línea: fecha ; código de reserva o SIN ; nombre ; cantidad (o T7 si es un taco del talonario 7) ; Efectivo/TPV
+let HOJA = [];
+function parseFecha(t) {
+  const m = String(t).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/); if (!m) return '';
+  return D.hoy.slice(0, 4) + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+}
+function parseHoja(txt) {
+  return txt.split(/\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')).map((l, i) => {
+    const c = l.split(/\s*[;|\t]\s*/);
+    const o = { n: i + 1, linea: l, fecha: parseFecha(c[0]), cod: String(c[1] || '').trim().toUpperCase().replace(/^L-?0*(\d+)$/, (_, d) => 'L-' + ('00' + d).slice(-3)), nombre: (c[2] || '').trim(), cant: (c[3] || '').trim(), medio: /tpv|tarjeta/i.test(c[4] || '') ? 'TPV' : (/ef/i.test(c[4] || '') ? 'Efectivo' : '') };
+    const tq = o.cant.match(/^t\s*(\d+)$/i);
+    o.tipo = tq ? 'taco' : (/^SIN/.test(o.cod) ? 'sin' : 'reserva');
+    if (tq) o.talonario = +tq[1]; else o.cantidad = parseInt(o.cant, 10);
+    return revisar(o);
+  });
+}
+function revisar(o) {
+  o.ok = true; o.msg = '';
+  const mal = m => { o.ok = false; o.msg = m; return o; };
+  if (!o.fecha) return mal('Fecha no válida');
+  if (o.fecha > D.hoy) return mal('Fecha futura');
+  if (o.tipo !== 'taco' && !(o.cantidad >= 1)) return mal('Cantidad no válida');
+  if (o.tipo !== 'taco' && !o.medio) return mal('Falta Efectivo o TPV');
+  const nom1 = norm(o.nombre.split(/\s+/)[0] || '');
+  if (o.tipo === 'sin') {
+    const dup = D.reservas.find(r => !inactiva(r) && r['Fecha entrega sueltas'] === o.fecha && Number(r['Sueltas entregadas']) === o.cantidad &&
+      (/Venta directa|Hoja a mano/.test(r['Origen']) ) && (!nom1 || norm(r['Nombre'] + ' ' + r['Apellidos']).includes(nom1) || /Venta/.test(r['Nombre'])));
+    if (dup) { o.ok = false; o.dudoso = true; o.msg = `¿Ya está? ${dup['Código']} (${dup['Nombre']} ${dup['Apellidos']}, ${dup['Sueltas entregadas']} el ${fecha(o.fecha)}). Márcala solo si es otra venta.`; return o; }
+    o.msg = `Venta sin reserva: ${o.cantidad} × ${eur(P())} = ${eur(o.cantidad * P())} (${o.medio})`; return o;
+  }
+  const r = D.reservas.find(x => x['Código'] === o.cod);
+  if (!r) return mal('No existe la reserva ' + o.cod);
+  o.sistema = `${r['Nombre']} ${r['Apellidos']}`;
+  const nombreOk = !nom1 || norm(o.sistema).includes(nom1);
+  if (r['Estado'] === 'Anulada') return mal(`${o.cod} está anulada (${o.sistema})`);
+  if (o.tipo === 'taco') {
+    const ya = D.tacos.find(t => t['Código reserva'] === o.cod && +t['Talonario'] === o.talonario);
+    if (ya) { o.ok = false; o.ya = true; o.msg = `Ya registrado: ${ya['ID']}, talonario ${o.talonario}`; return o; }
+    const otro = D.tacos.find(t => +t['Talonario'] === o.talonario);
+    if (otro) return mal(`El talonario ${o.talonario} ya consta como taco de ${otro['Titular']} (${otro['ID']})`);
+    o.msg = `Taco: talonario ${o.talonario} para ${o.sistema}`;
+  } else {
+    if (r['Sueltas entregadas'] !== '') { o.ok = false; o.ya = true; o.msg = `Ya registrada: ${r['Sueltas entregadas']} entregadas el ${fecha(r['Fecha entrega sueltas'])}${Number(r['Sueltas entregadas']) !== o.cantidad ? ' (en la hoja pone ' + o.cantidad + ': revísalo)' : ''}`; return o; }
+    const res = Number(r['Sueltas']) || 0;
+    o.msg = `${o.cantidad} sueltas · ${eur(o.cantidad * P())} (${o.medio})` + (r['Estado'] === 'Liberada' ? ' · <b>estaba liberada: se reactiva</b>' : '') + (res && res !== o.cantidad ? ` · reservó ${res}` : '');
+  }
+  if (!nombreOk) { o.ok = false; o.dudoso = true; o.msg = `<b>El nombre no coincide</b>: en el sistema ${o.cod} es ${esc(o.sistema)}. ` + o.msg; }
+  return o;
+}
+function dlgHojas() {
+  fichaAbierta = null;
+  openDlg('Pasar hojas a mano al sistema',
+    `<p class="muted" style="margin-top:0">Una línea por entrega: <span class="mono">fecha ; código o SIN ; nombre ; cantidad (o T7 si es el taco del talonario 7) ; Efectivo o TPV</span>. Se registra con la fecha de la hoja. Lo que ya esté en el sistema se detecta y no se repite.</p>
+     <textarea id="hTxt" rows="10" class="mono" style="width:100%;font-size:13px" placeholder="10/11; L-002; Pablo; 7; Efectivo&#10;10/11; SIN; Beatriz Trejo; 1; Efectivo&#10;17/11; L-088; Inmaculada Gollón; T7"></textarea>
+     <div id="hPrev"></div>
+     <label class="chk2" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:400"><input type="checkbox" id="hContado" checked style="margin-top:3px"> <span><b>Este efectivo ya se contó</b> en cierres anteriores o ya no está en la caja. Desmárcalo si el dinero sigue en la caja sin cerrar: entonces sumará al «efectivo sin cerrar».</span></label>
+     <div class="err" id="dlgErr"></div>`,
+    [cancelBtn,
+     { text: 'Revisar', cls: 'dark', fn: () => { HOJA = parseHoja($('hTxt').value); pintarHoja(); } },
+     { text: 'Registrar marcadas', cls: 'pri', fn: e => run(e.target, registrarHoja) }], true);
+}
+function pintarHoja() {
+  const marc = HOJA.filter(o => o.ok).length;
+  $('hPrev').innerHTML = HOJA.length ? `<table class="tbl" style="margin-top:10px"><tr><th></th><th>Fecha</th><th>Código</th><th>Nombre (hoja)</th><th class="n">Cant.</th><th>Qué se hará</th></tr>` +
+    HOJA.map((o, i) => `<tr class="${o.ya ? 'done' : ''}"><td><input type="checkbox" data-h="${i}" ${o.ok ? 'checked' : ''} ${(!o.ok && !o.dudoso) || o.hecho ? 'disabled' : ''}></td>
+      <td>${fecha(o.fecha)}</td><td class="mono">${esc(o.tipo === 'sin' ? 'SIN' : o.cod)}</td><td>${esc(o.nombre)}</td><td class="n">${o.tipo === 'taco' ? 'T' + o.talonario : esc(o.cantidad)}</td>
+      <td style="font-size:13px" class="${o.hecho ? 'ok' : (o.ok ? '' : (o.dudoso ? 'pend' : 'muted'))}">${o.hecho ? '✓ ' + esc(o.hecho) : o.msg}</td></tr>`).join('') +
+    `</table><p class="muted" style="font-size:12px">${marc} marcadas. Las dudosas salen sin marcar: márcalas a mano solo si estás seguro.</p>` : '';
+  $('hPrev').querySelectorAll('[data-h]').forEach(cb => cb.addEventListener('change', () => { HOJA[+cb.dataset.h].ok = cb.checked; }));
+}
+async function registrarHoja() {
+  const todo = HOJA.filter(o => o.ok && !o.hecho);
+  if (!todo.length) throw new Error('No hay líneas marcadas. Pulsa «Revisar» primero.');
+  let bien = 0, malas = 0;
+  for (const o of todo) {
+    try {
+      const d = await api({ action: 'regularizar', tipo: o.tipo, codigo: o.cod, nombre: o.nombre, cantidad: o.cantidad, talonario: o.talonario, medio: o.medio, fecha: o.fecha, yaContado: $('hContado').checked });
+      o.hecho = d.texto; o.ok = false; bien++;
+    } catch (er) { o.msg = '<span class="red">' + esc(er.message) + '</span>'; o.ok = false; malas++; }
+    pintarHoja();
+  }
+  D = await api({ action: 'datos' }); prep(); renderAll();
+  toast(`${bien} registradas${malas ? ', ' + malas + ' con error' : ''}`);
 }
 
 /* ===== VENTAS ===== */
@@ -898,6 +1093,30 @@ document.addEventListener('click', async e => {
     case 'nota': return openDlg('Nota · ' + c, `<label>Nota</label><textarea id="dNota" rows="3"></textarea><div class="err" id="dlgErr"></div>`,
       [cancelBtn, { text: 'Guardar', cls: 'pri', fn: ev => run(ev.target, async () => { await api({ action: 'nota', codigo: c, nota: $('dNota').value }); await tras('Nota guardada'); }) }]);
     case 'anular': return confirmar('Anular ' + c, `<p>¿Anular la reserva de <b>${esc(getR(c)['Nombre'])} ${esc(getR(c)['Apellidos'])}</b>? Lo reservado vuelve a quedar libre.</p>`, 'Anular reserva', async () => { fichaAbierta = null; await api({ action: 'anular', codigo: c }); await tras(c + ' anulada'); });
+    case 'modo': {
+      const on = !D.prerreserva;
+      return confirmar(on ? 'Abrir pre-reservas' : 'Volver a venta normal',
+        on ? '<p>La web pública dejará de admitir reservas normales y mostrará <b>«Agotada»</b> con el formulario de pre-reserva (lista de espera, sin día de recogida). Las reservas que ya existen no cambian.</p>'
+           : '<p>La web pública vuelve a admitir reservas normales con día de recogida, según lo que quede libre. Las pre-reservas se quedan guardadas en esta pestaña.</p>',
+        on ? 'Abrir pre-reservas' : 'Volver a venta normal',
+        async () => { await api({ action: 'modo', prerreserva: on }); await tras(on ? 'Pre-reservas abiertas en la web' : 'Venta normal en la web'); });
+    }
+    case 'ePasar': return dlgPasar(c);
+    case 'hojas': return dlgHojas();
+    case 'eEstado': {
+      const est = b.dataset.est;
+      if (est === 'Anulada') return confirmar('Anular pre-reserva ' + c, `<p>¿Anular la pre-reserva de <b>${esc(getP(c)['Nombre'])} ${esc(getP(c)['Apellidos'])}</b>? Sale de la lista de espera.</p>`, 'Anular', async () => { await api({ action: 'prerreservaEstado', codigo: c, estado: est }); await tras(c + ' anulada'); });
+      try { await api({ action: 'prerreservaEstado', codigo: c, estado: est }); await load(); toast(c + ': ' + est.toLowerCase()); } catch (er) { toast(er.message); }
+      return;
+    }
+    case 'eCopiarTelR': {
+      const tels = [...new Set(porRecoger().map(r => r['Teléfono']))];
+      await copiar(tels.join('\n')); return toast(tels.length + ' teléfonos copiados');
+    }
+    case 'eCopiarTelP': {
+      const tels = [...new Set((D.prerreservas || []).filter(preEspera).map(x => x['Teléfono']))];
+      await copiar(tels.join('\n')); return toast(tels.length + ' teléfonos copiados');
+    }
     case 'copiarTel': {
       const tels = [...new Set(D.tacos.filter(t => t['Estado'] === 'En depósito').map(t => t['Teléfono']))];
       await copiar(tels.join('\n')); return toast(tels.length + ' teléfonos copiados');
@@ -975,6 +1194,7 @@ async function excel() {
   XLSX.utils.book_append_sheet(wb, hoja(D.caja, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Concepto', 'Concepto'], ['Código', 'Código'], ['Importe (€)', 'Importe'], ['Medio', x => x['Medio'] || 'Efectivo'], ['Cobrado por', 'Cobrado por']]), 'Caja');
   XLSX.utils.book_append_sheet(wb, hoja(D.cierres, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Esperado (€)', 'Esperado'], ['Contado (€)', 'Contado'], ['Diferencia (€)', 'Diferencia'], ['TPV del periodo (€)', 'TPV del periodo'], ['Firmas', 'Firmas'], ['Notas', 'Notas']]), 'Cierres');
   XLSX.utils.book_append_sheet(wb, hoja(D.reservas.filter(noVino), [['Código', 'Código'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Día elegido', 'Día recogida'], ['Pendiente (€)', porCobrar]]), 'No vinieron');
+  XLSX.utils.book_append_sheet(wb, hoja(D.prerreservas || [], [['Código', 'Código'], ['Alta', 'Alta'], ['Apellidos', 'Apellidos'], ['Nombre', 'Nombre'], ['Teléfono', 'Teléfono'], ['Email', 'Email'], ['Participaciones', 'Participaciones'], ['Estado', 'Estado'], ['Reserva', 'Reserva'], ['Notas', 'Notas']]), 'Pre-reservas');
   XLSX.utils.book_append_sheet(wb, hoja(D.registro, [['Fecha', 'Fecha'], ['Hora', 'Hora'], ['Quién', 'Usuario'], ['Acción', 'Acción'], ['Código', 'Código'], ['Detalle', 'Detalle']]), 'Registro');
   XLSX.writeFile(wb, 'Loteria_TRC_cuentas_' + D.hoy + '.xlsx');
 }
